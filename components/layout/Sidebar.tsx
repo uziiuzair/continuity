@@ -275,13 +275,21 @@ function ThreadItem({
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
       className={cn(
         "w-full flex items-center justify-between gap-2 pl-6 pr-2.5 py-1.5 rounded-md cursor-pointer transition-colors group",
-        isActive ? "bg-[#f5f4ed]" : "hover:bg-[#f5f4ed]/50",
+        isActive ? "bg-[#f5f4ed]" : "hover:bg-[#f5f4ed]/50"
       )}
     >
       <span className="text-sm text-(--text-primary) truncate">{title}</span>
@@ -307,6 +315,6 @@ function ThreadItem({
           </svg>
         </button>
       )}
-    </button>
+    </div>
   );
 }

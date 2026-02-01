@@ -67,6 +67,60 @@ export async function initializeSchema(): Promise<void> {
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)
   `);
+
+  // Add canvas_content column to threads if not exists
+  const threadColumns = await db.select<{ name: string }[]>(
+    "PRAGMA table_info(threads)"
+  );
+  const hasCanvasColumn = threadColumns.some(
+    (col) => col.name === "canvas_content"
+  );
+  if (!hasCanvasColumn) {
+    await db.execute("ALTER TABLE threads ADD COLUMN canvas_content TEXT");
+  }
+
+  // Memories table for persistent key-value storage
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS memories (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      scope TEXT DEFAULT 'global',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(key, scope)
+    )
+  `);
+
+  // Artifacts table for tasks, notes, decisions
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES threads(id),
+      type TEXT NOT NULL CHECK (type IN ('task', 'note', 'decision')),
+      title TEXT NOT NULL,
+      content TEXT,
+      status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
+      priority TEXT CHECK (priority IN ('low', 'medium', 'high')),
+      due_date TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      source_message_id TEXT
+    )
+  `);
+
+  // Create index for faster artifact queries
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_artifacts_thread_id ON artifacts(thread_id)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(type)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope)
+  `);
 }
 
 export async function createItem(content: string): Promise<void> {

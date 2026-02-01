@@ -299,8 +299,9 @@ body {
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar {
+/* ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -314,4 +315,1353 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #ccc;
+} */
+
+/* Notion-like centered content width for BlockNote */
+.bn-container .bn-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Default content width - narrower and centered */
+.bn-container .bn-block-group {
+  max-width: 700px;
+  width: 100%;
+}
+
+/* Wide blocks that can extend to full width */
+.bn-container .bn-block[data-content-type="table"],
+.bn-container .bn-block[data-content-type="image"],
+.bn-container .bn-block[data-content-type="codeBlock"],
+.bn-container .bn-block[data-content-type="video"],
+.bn-container .bn-block[data-content-type="database"] {
+  max-width: 100%;
+}
+
+/* ============================================
+   DATABASE BLOCK STYLES - Refined & Beautiful
+   ============================================ */
+
+.database-block {
+  width: 100%;
+  font-size: 14px;
+}
+
+.database-title {
+  padding: 16px 20px 12px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Toolbar - Clean & Minimal */
+.database-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+
+.database-toolbar-views {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.database-toolbar-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.database-toolbar-view-btn:hover {
+  color: var(--text-primary);
+}
+
+.database-toolbar-view-btn.active {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.database-toolbar-view-icon {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.database-toolbar-view-label {
+  font-size: 12px;
+}
+
+.database-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.database-toolbar-menu {
+  position: relative;
+}
+
+.database-toolbar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: white;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.database-toolbar-action-btn:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+.database-toolbar-action-btn svg {
+  opacity: 0.6;
+}
+
+.database-toolbar-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 160px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  z-index: 100;
+  padding: 6px;
+}
+
+.database-toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.database-toolbar-dropdown-item:hover,
+.database-toolbar-dropdown-item.active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.database-toolbar-dropdown-icon {
+  font-size: 13px;
+  width: 18px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+/* Table View - Elegant Grid */
+.database-table {
+  overflow-x: auto;
+}
+
+.database-table-header,
+.database-table-row {
+  display: grid;
+}
+
+.database-table-header {
+  background: #f9f9f8;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.database-table-body {
+  background: white;
+}
+
+.database-table-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.1s ease;
+}
+
+.database-table-row:hover {
+  background: #fafaf9;
+}
+
+.database-table-row:last-child {
+  border-bottom: none;
+}
+
+.database-table-cell {
+  padding: 10px 14px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.database-table-cell:last-child {
+  border-right: none;
+}
+
+.database-table-cell-spacer {
+  border-right: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.database-table-header-actions {
+  padding: 10px 8px;
+}
+
+.database-add-column-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+}
+
+.database-add-column-btn:hover {
+  opacity: 1;
+  color: var(--color-electric-violet);
+}
+
+.database-table-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.database-table-row:hover .database-table-row-actions {
+  opacity: 1;
+}
+
+.database-table-row-delete {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.database-table-row-delete:hover {
+  background: var(--color-radical-red-50);
+  color: var(--color-radical-red);
+}
+
+.database-table-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.database-table-add-row:hover {
+  background: #f5f5f4;
+  color: var(--text-primary);
+}
+
+.database-table-add-row svg {
+  opacity: 0.6;
+}
+
+/* Column Header - Refined */
+.database-column-header {
+  padding: 10px 14px;
+  border-right: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.database-column-header-menu {
+  position: relative;
+  width: 100%;
+}
+
+.database-column-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.database-column-header-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.database-column-type-icon {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.database-column-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-column-name-input {
+  flex: 1;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: 1px solid var(--color-electric-violet-300);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: white;
+  outline: none;
+}
+
+.database-column-dropdown {
+  position: absolute;
+  top: 100%;
+  left: -6px;
+  margin-top: 6px;
+  min-width: 200px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  z-index: 100;
+  padding: 6px;
+}
+
+.database-column-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.database-column-dropdown-item:hover,
+.database-column-dropdown-item.active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.database-column-dropdown-item.selected {
+  color: var(--color-electric-violet);
+}
+
+.database-column-dropdown-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 6px 0;
+}
+
+.database-column-dropdown-label {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.database-column-delete {
+  color: var(--color-radical-red);
+}
+
+/* Cells - Clean & Functional */
+.database-cell-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-electric-violet-200);
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(114, 64, 254, 0.1);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.database-cell-input:focus {
+  border-color: var(--color-electric-violet);
+  box-shadow: 0 0 0 3px rgba(114, 64, 254, 0.15);
+}
+
+.database-cell-text,
+.database-cell-number,
+.database-cell-date {
+  width: 100%;
+  cursor: text;
+  min-height: 22px;
+  padding: 2px 0;
+}
+
+.database-cell-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.4;
+  font-style: italic;
+}
+
+.database-cell-date-input {
+  font-family: inherit;
+}
+
+.database-cell-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.database-cell-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-caribbean-green);
+  border-radius: 4px;
+}
+
+/* Select Cell - Polished */
+.database-cell-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.database-cell-select-button {
+  width: 100%;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.database-cell-select-button:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.database-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: -4px;
+  margin-top: 4px;
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  z-index: 100;
+  padding: 6px;
+}
+
+.database-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+
+.database-select-option:hover,
+.database-select-option.active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.database-select-option-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.database-select-option-menu {
+  position: relative;
+}
+
+.database-select-option-menu-btn {
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.database-select-option:hover .database-select-option-menu-btn {
+  opacity: 1;
+}
+
+.database-select-option-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.database-select-color-picker {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  margin-right: 6px;
+  padding: 12px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 101;
+}
+
+.database-color-picker-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.database-color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.database-color-swatch {
+  width: 26px;
+  height: 26px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.database-color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.database-color-swatch.selected {
+  border-color: var(--text-primary);
+}
+
+.database-select-delete-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-radical-red);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+
+.database-select-delete-btn:hover {
+  background: var(--color-radical-red-50);
+}
+
+.database-select-clear {
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+
+.database-select-clear:hover,
+.database-select-clear.active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.database-select-create {
+  padding: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: 6px;
+}
+
+.database-select-create-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.database-select-create-input:focus {
+  border-color: var(--color-electric-violet-300);
+}
+
+.database-select-create-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.1s ease;
+}
+
+.database-select-create-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+/* Select Tags - Beautiful Pills */
+.database-select-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* List View - Clean & Focused */
+.database-list {
+  padding: 8px 12px;
+}
+
+.database-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 2px;
+  transition: background 0.1s ease;
+}
+
+.database-list-item:hover {
+  background: #f7f7f6;
+}
+
+.database-list-item.completed .database-list-title {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.database-list-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d4d4d3;
+  border-radius: 6px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.database-list-checkbox:hover {
+  border-color: var(--color-caribbean-green-300);
+}
+
+.database-list-checkbox.checked {
+  background: var(--color-caribbean-green);
+  border-color: var(--color-caribbean-green);
+}
+
+.database-list-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.database-list-title-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-list-tags {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.database-list-delete {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.database-list-item:hover .database-list-delete {
+  opacity: 1;
+}
+
+.database-list-delete:hover {
+  background: var(--color-radical-red-50);
+  color: var(--color-radical-red);
+}
+
+.database-list-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.1s ease;
+}
+
+.database-list-add:hover {
+  background: #f5f5f4;
+  color: var(--text-primary);
+}
+
+/* Kanban View - Card-based Beauty */
+.database-kanban {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  overflow-x: auto;
+  min-height: 200px;
+}
+
+.database-kanban-no-group {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.database-kanban-hint {
+  font-size: 13px;
+  margin-top: 10px;
+  opacity: 0.6;
+}
+
+.database-kanban-column {
+  flex: 0 0 280px;
+  background: #f7f7f6;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.database-kanban-column-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 12px;
+}
+
+.database-kanban-no-status-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.database-kanban-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.database-kanban-cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.database-kanban-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: grab;
+  position: relative;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.database-kanban-card:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.database-kanban-card.dragging {
+  opacity: 0.5;
+}
+
+.database-kanban-card-title {
+  font-size: 14px;
+  padding-right: 24px;
+  line-height: 1.4;
+}
+
+.database-kanban-card-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.database-kanban-card:hover .database-kanban-card-delete {
+  opacity: 1;
+}
+
+.database-kanban-card-delete:hover {
+  background: var(--color-radical-red-50);
+  color: var(--color-radical-red);
+}
+
+.database-kanban-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-top: 4px;
+  transition: all 0.1s ease;
+}
+
+.database-kanban-add:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   DSG (react-datasheet-grid) STYLES
+   ============================================ */
+
+.database-dsg {
+  width: 100%;
+  font-size: 14px;
+
+  /* Override DSG selection/focus colors */
+  --dsg-selection-border-color: transparent;
+  --dsg-border-color: rgba(0, 0, 0, 0.06);
+  --dsg-selection-background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Remove any focus outlines from DSG */
+.database-dsg *:focus {
+  outline: none !important;
+}
+
+.database-dsg .dsg-cell,
+.database-dsg .dsg-cell:focus,
+.database-dsg .dsg-cell:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* DSG Select Cell Styles */
+.dsg-select-cell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.dsg-select-display {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.dsg-select-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.dsg-select-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dsg-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  padding: 4px;
+}
+
+.dsg-select-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dsg-select-option {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+
+.dsg-select-option:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dsg-select-option.selected {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.dsg-select-option-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsg-select-option-edit {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.dsg-select-option:hover .dsg-select-option-edit {
+  opacity: 0.6;
+}
+
+.dsg-select-option-edit:hover {
+  opacity: 1 !important;
+}
+
+.dsg-color-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dsg-select-clear {
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.dsg-select-clear:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dsg-select-create {
+  padding: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: 4px;
+}
+
+.dsg-select-create-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.dsg-select-create-input:focus {
+  border-color: var(--color-electric-violet-300);
+}
+
+.dsg-select-create-btn {
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-electric-violet);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.dsg-select-create-btn:hover {
+  background: var(--color-electric-violet-50);
+}
+
+.dsg-color-picker {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  margin-right: 4px;
+  padding: 8px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1001;
+}
+
+.dsg-color-picker-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.dsg-color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.dsg-color-swatch {
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.dsg-color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.dsg-color-swatch.selected {
+  border-color: var(--text-primary);
+}
+
+/* ============================================
+   CUSTOM BLOCK EDITOR STYLES
+   ============================================ */
+
+.custom-editor {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  min-height: 100%;
+  cursor: text;
+}
+
+.editor-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+/* Block container */
+.block-paragraph {
+  padding: 3px 2px;
+  min-height: 1.5em;
+  border-radius: 3px;
+  transition: background-color 0.1s ease;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.block-paragraph:focus {
+  outline: none;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Placeholder styling - only show on first empty block */
+.block-paragraph:empty::before {
+  content: none;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Show placeholder only on the first empty paragraph */
+.editor-content > .block-wrapper:first-child .block-paragraph:empty::before {
+  content: attr(data-placeholder);
+}
+
+/* Unknown block type fallback */
+.block-unknown {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+/* Block wrapper for selection */
+.block-wrapper {
+  position: relative;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.block-wrapper.selected {
+  background-color: rgba(114, 64, 254, 0.1);
+}
+
+.block-wrapper.selected::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--color-electric-violet);
+  border-radius: 2px;
+}
+
+/* Selection box */
+.selection-box {
+  background-color: rgba(114, 64, 254, 0.1);
+  border: 1px solid rgba(114, 64, 254, 0.4);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Disable text selection while dragging selection box */
+.custom-editor.selecting {
+  user-select: none;
+}
+
+/* Floating drag handle */
+.drag-handle {
+  position: absolute;
+  left: -32px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0;
+  cursor: grab;
+  border-radius: 4px;
+  transition:
+    top 0.2s cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 0.15s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.drag-handle.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drag-handle:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+
+.drag-handle:active,
+.drag-handle.dragging {
+  cursor: grabbing;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* Block being dragged */
+.block-wrapper.dragging {
+  opacity: 0.8;
+  background-color: rgba(114, 64, 254, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  z-index: 100;
+  position: relative;
+}
+
+/* Other blocks shift smoothly during drag */
+.block-wrapper.shifting {
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Drop indicator line */
+.drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-electric-violet);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.drop-indicator::before,
+.drop-indicator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  background: var(--color-electric-violet);
+  border-radius: 50%;
+}
+
+.drop-indicator::before {
+  left: -3px;
+}
+
+.drop-indicator::after {
+  right: -3px;
+}
+
+/* Dragging block state on editor */
+.custom-editor.dragging-block {
+  user-select: none;
+  cursor: grabbing;
+}
+
+.custom-editor.dragging-block * {
+  cursor: grabbing !important;
 }

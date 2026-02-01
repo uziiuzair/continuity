@@ -82,12 +82,12 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               </ul>
             ),
             ol: ({ children }) => (
-              <ol className="list-decimal list-inside my-2 space-y-1 text-black">
+              <ol className="list-decimal list-inside text-xl my-2 space-y-1 text-black">
                 {children}
               </ol>
             ),
             li: ({ children }) => (
-              <li className="text-base text-black">{children}</li>
+              <li className="text-xl text-black">{children}</li>
             ),
             a: ({ href, children }) => (
               <a
@@ -120,11 +120,4 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       </div>
     </div>
   );
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }

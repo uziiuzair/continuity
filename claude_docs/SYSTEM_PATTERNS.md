@@ -556,6 +556,188 @@ const sendMessage = async (content: string) => {
 };
 ```
 
+### Tool Calling Pattern
+
+```typescript
+// lib/ai/types.ts
+export interface AITool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+  };
+}
+
+export interface AIToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string; // JSON string
+  };
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  toolCallId?: string;      // For tool result messages
+  toolCalls?: AIToolCall[]; // For assistant messages with tool calls
+}
+
+export interface ChatOptions {
+  tools?: AITool[];
+  toolChoice?: "auto" | "none" | "required";
+}
+```
+
+### Tool Calling Loop
+
+```typescript
+// providers/chat-provider.tsx
+const MAX_TOOL_ITERATIONS = 10;
+let iterations = 0;
+let currentMessages = [...aiMessages];
+
+while (iterations < MAX_TOOL_ITERATIONS) {
+  iterations++;
+
+  const response = await client.chatStream(
+    currentMessages,
+    onChunk,
+    { tools: getCanvasTools(), toolChoice: "auto" }
+  );
+
+  if (response.toolCalls && response.toolCalls.length > 0) {
+    // IMPORTANT: Include toolCalls in assistant message for OpenAI
+    currentMessages.push({
+      role: "assistant",
+      content: response.content || "",
+      toolCalls: response.toolCalls,
+    });
+
+    // Execute tools and get results
+    const results = await executeToolCalls(response.toolCalls, threadId);
+
+    // Add tool results to messages
+    currentMessages.push(...results);
+
+    // Clear UI content for next iteration
+    finalContent = "";
+  } else {
+    // No more tool calls, done
+    break;
+  }
+}
+```
+
+### Tool Execution Pattern
+
+```typescript
+// lib/ai/canvas-tools.ts
+export async function executeCanvasTool(
+  toolCall: ToolCall,
+  threadId: string
+): Promise<ToolResult> {
+  switch (toolCall.name) {
+    case "read_canvas":
+      const content = await getCanvasContent(threadId);
+      return {
+        toolCallId: toolCall.id,
+        result: formatCanvasForAI(content),
+        success: true,
+      };
+
+    case "update_block":
+      const { blockId, props } = toolCall.arguments;
+      // Get content, find block, update, save
+      await saveCanvasContent(threadId, updatedContent);
+      return {
+        toolCallId: toolCall.id,
+        result: `Updated block "${blockId}"`,
+        success: true,
+      };
+
+    // ... other tools
+  }
+}
+```
+
+### OpenAI Tool Message Conversion
+
+```typescript
+// lib/ai/openai.ts
+private convertMessages(messages: ChatMessage[]): OpenAIMessage[] {
+  return messages.map((msg) => {
+    // Tool results
+    if (msg.role === "tool") {
+      return {
+        role: "tool",
+        content: msg.content,
+        tool_call_id: msg.toolCallId,  // Required
+      };
+    }
+
+    // Assistant with tool calls
+    if (msg.role === "assistant" && msg.toolCalls?.length > 0) {
+      return {
+        role: "assistant",
+        content: msg.content || null,
+        tool_calls: msg.toolCalls.map((tc) => ({
+          id: tc.id,
+          type: "function",
+          function: {
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          },
+        })),
+      };
+    }
+
+    // Regular message
+    return { role: msg.role, content: msg.content };
+  });
+}
+```
+
+### Anthropic Tool Message Conversion
+
+```typescript
+// lib/ai/anthropic.ts
+// Tool results go in user messages with tool_result blocks
+if (msg.role === "tool") {
+  conversationMessages.push({
+    role: "user",
+    content: [{
+      type: "tool_result",
+      tool_use_id: msg.toolCallId,
+      content: msg.content,
+    }],
+  });
+}
+
+// Assistant with tool calls uses content blocks
+if (msg.role === "assistant" && msg.toolCalls?.length > 0) {
+  const contentBlocks = [];
+  if (msg.content) {
+    contentBlocks.push({ type: "text", text: msg.content });
+  }
+  for (const tc of msg.toolCalls) {
+    contentBlocks.push({
+      type: "tool_use",
+      id: tc.id,
+      name: tc.function.name,
+      input: JSON.parse(tc.function.arguments),
+    });
+  }
+  conversationMessages.push({ role: "assistant", content: contentBlocks });
+}
+```
+
 ### Artifact Extraction
 
 ```typescript
@@ -601,6 +783,188 @@ function buildContextPrompt(space: SpaceWithArtifacts): string {
   // Similar for other artifacts...
 
   return parts.join("\n");
+}
+```
+
+## Canvas Patterns
+
+### Canvas Provider with AI API
+
+```typescript
+// providers/canvas-provider.tsx
+interface CanvasContextType {
+  content: CanvasContent | null;
+  isLoading: boolean;
+  isSaving: boolean;
+  isDirty: boolean;
+  updateContent: (content: CanvasContent) => void;
+  saveNow: () => Promise<void>;
+
+  // AI API access
+  aiApi: AICanvasAPI | null;
+  registerEditor: (editor: BlockNoteEditor) => void;
+  unregisterEditor: () => void;
+
+  // External refresh (after DB writes)
+  refreshContent: () => Promise<void>;
+}
+```
+
+### Database-Backed Canvas Operations
+
+```typescript
+// lib/db/canvas.ts
+export async function appendCanvasBlocks(
+  threadId: string,
+  blocks: SimpleBlock[]
+): Promise<CanvasContent> {
+  // Get existing content
+  const existingContent = await getCanvasContent(threadId);
+
+  // Convert SimpleBlocks to BlockNote format
+  const newBlocks = blocks.map(simpleBlockToBlockNote);
+
+  // Handle empty canvas (replace default paragraph)
+  let updatedContent: CanvasContent;
+  if (isDefaultEmpty(existingContent)) {
+    updatedContent = newBlocks;
+  } else {
+    updatedContent = [...existingContent, ...newBlocks];
+  }
+
+  // Save to database
+  await saveCanvasContent(threadId, updatedContent);
+
+  return updatedContent;
+}
+```
+
+### Editor Cursor Preservation
+
+```typescript
+// components/canvas/editor.tsx
+export default function Editor() {
+  // Track if change is from user editing
+  const isUserEditing = useRef(false);
+  const lastContentRef = useRef<string | null>(null);
+
+  // Handle user edits
+  const handleChange = () => {
+    isUserEditing.current = true;
+    const blocks = editor.document;
+    lastContentRef.current = JSON.stringify(blocks);
+    updateContent(blocks);
+  };
+
+  // Only replace content on external changes
+  useEffect(() => {
+    if (isUserEditing.current) {
+      isUserEditing.current = false;
+      return; // Skip - change came from editor
+    }
+
+    const contentJson = content ? JSON.stringify(content) : null;
+    if (contentJson === lastContentRef.current) {
+      return; // Skip - content hasn't changed
+    }
+
+    lastContentRef.current = contentJson;
+    editor.replaceBlocks(editor.document, content);
+  }, [content]);
+}
+```
+
+### Canvas Tool Definitions
+
+```typescript
+// lib/ai/canvas-tools.ts
+export const CANVAS_TOOLS: ToolDefinition[] = [
+  {
+    name: "read_canvas",
+    description: "Read the current contents of the canvas...",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "add_to_canvas",
+    description: "Add new blocks to the canvas...",
+    parameters: {
+      type: "object",
+      properties: {
+        blocks: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["paragraph", "heading", "checkListItem", ...] },
+              content: { type: "string" },
+              props: { type: "object" },
+            },
+          },
+        },
+      },
+      required: ["blocks"],
+    },
+  },
+  {
+    name: "update_block",
+    description: "Update an existing block by ID...",
+    parameters: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+        content: { type: "string" },
+        props: { type: "object" },
+      },
+      required: ["blockId"],
+    },
+  },
+  {
+    name: "delete_block",
+    description: "Delete a block by ID...",
+    parameters: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+      },
+      required: ["blockId"],
+    },
+  },
+];
+```
+
+### Formatting Canvas for AI
+
+```typescript
+// lib/ai/canvas-tools.ts
+function formatCanvasForAI(content: CanvasContent): string {
+  const lines: string[] = ["Current canvas content:", ""];
+
+  for (const block of content) {
+    const id = block.id;
+    const type = block.type;
+    const props = block.props || {};
+    const text = extractText(block.content);
+
+    // Format based on type
+    let prefix = "";
+    switch (type) {
+      case "heading":
+        prefix = `[H${props.level || 1}] `;
+        break;
+      case "checkListItem":
+        prefix = props.checked ? "[x] " : "[ ] ";
+        break;
+      case "bulletListItem":
+        prefix = "• ";
+        break;
+    }
+
+    lines.push(`ID: ${id}`);
+    lines.push(`${prefix}${text}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 ```
 

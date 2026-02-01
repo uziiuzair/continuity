@@ -1,216 +1,169 @@
 # Active Context
 
-**Last Updated**: 2026-02-01 (Streaming AI + Markdown rendering complete)
-**Current Session Focus**: AI streaming and chat UX improvements
+**Last Updated**: 2026-02-02 (Custom Block Editor - Phase 1)
+**Current Session Focus**: Built custom block editor replacing BlockNote
 
-## Current Work
+## Current State Summary
 
-### Recently Completed (Latest Session)
+Implemented Phase 1 of custom block editor. Created minimal paragraph-only editor from scratch with full control over persistence, styling, and behavior. BlockNote code kept for reference but no longer used.
 
-- **Streaming AI Responses - COMPLETE**
-  - Added `chatStream` method to `AIClient` interface
-  - Implemented SSE streaming for OpenAI (parses `delta.content`)
-  - Implemented event streaming for Anthropic (parses `content_block_delta`)
-  - Updated `chat-provider.tsx` to stream responses incrementally
-  - Messages appear progressively as AI generates text
+---
 
-- **Markdown Rendering in Chat - COMPLETE**
-  - Installed `react-markdown` and `remark-gfm`
-  - Assistant messages render with full markdown support
-  - Code blocks, lists, links, headers, blockquotes styled
-  - User messages remain plain text
+## Recently Completed (This Session)
 
-- **Files Modified**:
-  - `lib/ai/types.ts` - Added `chatStream` method to interface
-  - `lib/ai/openai.ts` - Implemented streaming with SSE parsing
-  - `lib/ai/anthropic.ts` - Implemented streaming with event parsing
-  - `providers/chat-provider.tsx` - Incremental message updates
-  - `components/chat/ChatMessage.tsx` - Markdown rendering for assistant
-  - `package.json` - Added react-markdown, remark-gfm
+### 1. Custom Block Editor Components
+- Created `components/canvas/Block.tsx` - Block type dispatcher
+- Created `components/canvas/blocks/ParagraphBlock.tsx` - contentEditable paragraph
+- Created `components/canvas/blocks/types.ts` - Block types and utilities
+- Created `components/canvas/CustomEditor.tsx` - Main editor component
 
-### Active Tasks
-- None currently
+### 2. Canvas Provider Updates
+- Made `canvas-provider.tsx` editor-agnostic
+- Removed BlockNote-specific imports and types
+- Added generic `EditorAPI` interface for future AI integration
+- Renamed `registerEditor` → `registerEditorApi`, `unregisterEditor` → `unregisterEditorApi`
 
-## Immediate Context
+### 3. Editor Switch
+- Updated `components/canvas/index.tsx` to use CustomEditor
+- BlockNote editor kept as `BlockNoteEditor` export for reference
+- Old editor.tsx updated to avoid build errors (removed provider calls)
 
-### Product Philosophy (Key Points)
+### 4. Styling
+- Added custom editor CSS to `globals.css`
+- Paragraph blocks with placeholder text
+- Focus states and hover effects
 
-1. **Chat Is the Write Path** - All mutations via natural language
-2. **Structure Emerges** - No templates, no upfront schema
-3. **Dashboards Are Read-Only** - Reflect understanding, not build
-4. **Spaces = Long-Running Context** - Projects, objectives, domains
-5. **Local-First** - SQLite, offline-capable, user owns data
+---
 
-### Core Components
+## Files Changed
+
+### Created
+| File | Purpose |
+|------|---------|
+| `components/canvas/Block.tsx` | Block type dispatcher component |
+| `components/canvas/blocks/ParagraphBlock.tsx` | contentEditable paragraph |
+| `components/canvas/blocks/types.ts` | EditorBlock, InlineContent types |
+| `components/canvas/blocks/index.ts` | Block exports |
+| `components/canvas/CustomEditor.tsx` | Main custom editor |
+
+### Modified
+| File | Changes |
+|------|---------|
+| `providers/canvas-provider.tsx` | Editor-agnostic API, removed BlockNote types |
+| `components/canvas/index.tsx` | Switched to CustomEditor |
+| `components/canvas/editor.tsx` | Disabled provider registration (kept for reference) |
+| `app/globals.css` | Added custom editor styles |
+
+---
+
+## Custom Editor Features (Phase 1)
+
+### Working
+- Type in paragraphs
+- Enter creates new paragraph after current
+- Backspace on empty deletes paragraph (or clears if only one)
+- Arrow up/down navigation between blocks
+- Content syncs to canvas provider
+- Persists to SQLite via existing flow
+- Placeholder text on empty blocks
+
+### Block State Flow
+```
+User types → ParagraphBlock.handleInput → onUpdate(blockId, {content})
+→ CustomEditor.handleUpdate → setBlocks → useEffect → updateContent
+→ CanvasProvider.updateContent → debounced saveToDb
+```
+
+---
+
+## Architecture
+
+```
+components/canvas/
+├── CustomEditor.tsx     # Main editor (manages block state)
+├── Block.tsx           # Dispatches to block type components
+├── blocks/
+│   ├── types.ts        # EditorBlock, InlineContent
+│   ├── index.ts        # Exports
+│   └── ParagraphBlock.tsx  # Paragraph editing
+├── editor.tsx          # OLD BlockNote (kept for reference)
+└── index.tsx           # Exports CustomEditor as Editor
+```
+
+---
+
+## Testing Checklist
+
+### Basic Editing
+- [x] Type in editor, text appears
+- [x] Press Enter, new paragraph created
+- [x] Backspace on empty, paragraph deleted
+- [x] Arrow navigation between blocks
+- [x] Refresh page, content persists
+- [x] Switch threads, content preserved
+
+### Edge Cases
+- [ ] IME input (composition events)
+- [ ] Copy/paste text
+- [ ] Multiple paragraphs with rich content
+- [ ] Very long paragraphs
+
+---
+
+## Component Status
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
 | SQLite DB | Data persistence | ✅ Working |
 | Threads | Conversation containers | ✅ Working |
 | Messages | Chat history | ✅ Working |
-| Chat Engine | Primary interface, write path | ✅ Working (with streaming) |
-| AI Clients | OpenAI/Anthropic integration | ✅ Working (with streaming) |
-| Settings | API keys, preferences | ✅ Working |
+| Chat Engine | Primary interface | ✅ Working |
+| AI Clients | OpenAI/Anthropic | ✅ Working |
+| Canvas | Per-thread editor | ✅ Custom Editor |
+| Custom Editor | Block-based editing | ✅ Phase 1 Complete |
+| Database Block | Notion-style tables | ⏳ Phase 3 (to migrate) |
+| Web Tools | Search, URL read, time | ✅ Implemented |
+| Memory Tools | Remember/recall/forget | ✅ Implemented |
+| Artifact Tools | Tasks/notes/decisions | ✅ Implemented |
+| Settings | API keys | ✅ Working |
 | Spaces | Context containers | 📅 To Build |
-| Artifacts | Derived data (tasks, notes, decisions) | 📅 To Build |
-| Dashboard | Read-only projection layer | 📅 To Build |
 
-### Hard Constraints (v1)
-
-- Desktop-only (no web, no mobile)
-- No real-time collaboration
-- No manual dashboard building
-- No forced accounts
-- Dashboards read-only
-
-### Project State
-
-- Next.js 16 + Tauri 2 + React 19
-- Full chat interface with streaming AI responses
-- Markdown rendering for AI messages
-- Thread management (create, switch, list)
-- Settings panel for API key configuration
-- Build passes (`npm run build`)
-
-## Architecture Overview
-
-### Provider Hierarchy
-```
-DatabaseProvider
-└── ThreadsProvider
-    └── ChatProvider
-        └── ViewProvider
-            └── App Components
-```
-
-### AI Client Architecture
-```typescript
-// lib/ai/types.ts
-interface AIClient {
-  chat(messages: ChatMessage[]): Promise<AIResponse>;
-  chatStream(
-    messages: ChatMessage[],
-    onChunk: (chunk: string) => void
-  ): Promise<AIResponse>;
-}
-```
-
-### Key Directories
-```
-lib/
-├── ai/
-│   ├── types.ts       # AIClient interface, ChatMessage, AIResponse
-│   ├── openai.ts      # OpenAI client with streaming
-│   ├── anthropic.ts   # Anthropic client with streaming
-│   └── index.ts       # Client factory
-├── db/
-│   ├── index.ts       # Database connection
-│   ├── messages.ts    # Message CRUD
-│   ├── threads.ts     # Thread CRUD
-│   └── settings.ts    # Settings CRUD
-
-providers/
-├── chat-provider.tsx      # Chat state, message sending with streaming
-├── threads-provider.tsx   # Thread management
-├── database-provider.tsx  # DB initialization
-└── view-provider.tsx      # UI state (panels, views)
-
-components/
-├── chat/
-│   ├── ChatMessage.tsx    # Message display with markdown
-│   ├── ChatInput.tsx      # Message input
-│   └── ...
-├── layout/
-│   ├── AppShell.tsx       # Main layout
-│   └── Sidebar.tsx        # Navigation
-└── settings/              # Settings UI
-```
-
-## Session History
-
-### This Session
-1. Added streaming support to AI client types
-2. Implemented OpenAI SSE streaming
-3. Implemented Anthropic event streaming
-4. Updated chat provider for incremental message updates
-5. Added markdown rendering with react-markdown
-6. Verified build passes
-
-### Key Decisions
-- **Callback-based streaming**: Simple `onChunk(text)` callback vs async iterators
-- **Optimistic message creation**: Empty assistant message created before streaming
-- **Save on complete**: Only persist to DB when stream finishes
-- **User messages plain text**: Only assistant messages get markdown rendering
+---
 
 ## Next Steps
 
-### Immediate Priorities
+### Phase 2: More Block Types
+1. **HeadingBlock** - H1/H2/H3 with level prop
+2. **BulletListBlock** - Bullet list items
+3. **NumberedListBlock** - Numbered list items
+4. **CheckListBlock** - Checkbox items
+5. **Slash Menu** - "/" to insert block types
 
-1. **Test streaming in Tauri**:
-   - Run `npm run tauri dev`
-   - Send messages and verify streaming works
-   - Test with both OpenAI and Anthropic
+### Phase 3: Database Block
+1. Move database components to work without BlockNote wrapper
+2. `DatabaseBlock.tsx` renders directly in custom editor
+3. Same context/table components, simpler integration
 
-2. **Implement Spaces**:
-   - Space CRUD operations
-   - Space switching in UI
-   - Link threads to spaces
+### Phase 4: Advanced Features
+- Keyboard navigation enhancements
+- Drag to reorder blocks
+- Copy/paste blocks
+- Undo/redo
+- Rich text formatting (bold, italic, etc.)
 
-3. **AI Artifact Extraction**:
-   - Parse AI responses for tasks, notes, decisions
-   - Create artifacts from conversation
-   - Link artifacts to source messages
+---
 
-### Build Order
+## Why Custom Editor
 
-```
-Phase 2: Chat + Spaces ← We are here
-├── ✅ Chat input + message display
-├── ✅ Message persistence
-├── ✅ AI integration (streaming)
-├── 5. Space CRUD (minimal)
-└── 6. Space switching
+**Problems with BlockNote:**
+- Persistence issues with custom blocks (programmatic updates don't trigger onChange)
+- Styling conflicts hard to override
+- Heavy dependency for features not fully used
+- Custom blocks don't integrate cleanly
 
-Phase 3: AI Integration
-├── ✅ AI client (BYOK setup)
-├── 7. Artifact extraction
-├── 8. Response generation with context
-└── 9. Topic detection
-
-Phase 4: Dashboard
-├── 10. Widget system
-├── 11. Task list widget
-├── 12. Other widgets
-└── 13. Auto-layout
-```
-
-## Context for Next Session
-
-### What's Working
-- Next.js dev server runs (`npm run dev`)
-- Tauri builds (`npm run tauri dev`)
-- SQLite database with threads/messages
-- Full chat interface with streaming
-- Markdown rendering for AI responses
-- Settings panel for API keys
-- TypeScript build passes
-
-### Streaming Pattern Established
-```typescript
-// In chat-provider.tsx
-const response = await client.chatStream(aiMessages, (chunk: string) => {
-  setMessages((prev) =>
-    prev.map((msg) =>
-      msg.id === assistantMessageId
-        ? { ...msg, content: msg.content + chunk }
-        : msg
-    )
-  );
-});
-```
-
-### Important Notes
-- Test with `npm run tauri dev` (not `npm run dev`)
-- Both OpenAI and Anthropic support streaming
-- Markdown uses react-markdown + remark-gfm
-- User messages stay plain text, assistant gets markdown
+**Benefits of Custom:**
+- Full control over persistence flow
+- Simple, debuggable code
+- Easy styling
+- Lightweight - only what we need
+- Direct state → provider → SQLite path

@@ -26,6 +26,13 @@ export async function getAIClient(): Promise<AIClient | null> {
   }
 }
 
-export type { AIClient, ChatMessage, AIResponse } from "./types";
+export type {
+  AIClient,
+  ChatMessage,
+  AIResponse,
+  AITool,
+  AIToolCall,
+  ChatOptions,
+} from "./types";
 export { OPENAI_MODELS } from "./openai";
 export { ANTHROPIC_MODELS } from "./anthropic";

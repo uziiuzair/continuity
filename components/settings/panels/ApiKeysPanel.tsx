@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { isTauriContext } from "@/lib/db";
-import { getAIConfig, setAIConfig } from "@/lib/db/settings";
+import { getAIConfig, setAIConfig, getSetting, setSetting } from "@/lib/db/settings";
 import { OPENAI_MODELS } from "@/lib/ai/openai";
 import { ANTHROPIC_MODELS } from "@/lib/ai/anthropic";
 import { AIProvider } from "@/types";
@@ -17,6 +17,7 @@ export default function ApiKeysPanel() {
   const [provider, setProvider] = useState<AIProvider>("openai");
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [tavilyApiKey, setTavilyApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
@@ -40,6 +41,12 @@ export default function ApiKeysPanel() {
         } else {
           // Set default model for initial provider
           setModel(OPENAI_MODELS[0].id);
+        }
+
+        // Load Tavily API key
+        const tavily = await getSetting("tavily_api_key");
+        if (tavily) {
+          setTavilyApiKey(tavily);
         }
       } catch (error) {
         console.error("Failed to load AI config:", error);
@@ -73,6 +80,12 @@ export default function ApiKeysPanel() {
         model,
         apiKey,
       });
+
+      // Save Tavily API key if provided
+      if (tavilyApiKey.trim()) {
+        await setSetting("tavily_api_key", tavilyApiKey.trim());
+      }
+
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
@@ -181,6 +194,50 @@ export default function ApiKeysPanel() {
             )}
           </p>
         </div>
+
+        {/* Divider */}
+        <div className="border-t border-(--border-color) my-6" />
+
+        {/* Web Search Section */}
+        <div>
+          <h4 className="text-sm font-medium text-(--text-primary) mb-3">
+            Web Search (Optional)
+          </h4>
+          <p className="text-xs text-(--text-secondary) mb-3">
+            Enable web search capabilities for real-time information access.
+          </p>
+        </div>
+
+        {/* Tavily API Key input */}
+        <div>
+          <label
+            htmlFor="tavilyApiKey"
+            className="block text-sm font-medium text-(--text-primary) mb-1.5"
+          >
+            Tavily API Key
+          </label>
+          <input
+            id="tavilyApiKey"
+            type="password"
+            value={tavilyApiKey}
+            onChange={(e) => setTavilyApiKey(e.target.value)}
+            placeholder="Enter your Tavily API key (optional)"
+            className="w-full px-3 py-2 text-sm border border-(--border-color) rounded-md bg-(--background-color) text-(--text-primary) placeholder:text-(--text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--accent-color) focus:border-transparent"
+          />
+          <p className="mt-1.5 text-xs text-(--text-secondary)">
+            Get your free API key from{" "}
+            <a
+              href="https://tavily.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-(--accent-color) hover:underline"
+            >
+              tavily.com
+            </a>
+            {" "}(1000 searches/month free)
+          </p>
+        </div>
+
         {/* Status message */}
         {saveStatus === "success" && (
           <div className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md">
