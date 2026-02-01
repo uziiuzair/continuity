@@ -1,54 +1,240 @@
 "use client";
 
 import { ChatState, Message } from "@/types";
-import { createContext, useCallback, useContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { useThreads } from "./threads-provider";
+import { isTauriContext } from "@/lib/db";
+import { createMessage, getMessagesByThread } from "@/lib/db/messages";
+import { getAIClient, ChatMessage as AIChatMessage } from "@/lib/ai";
+import { getAIConfig } from "@/lib/db/settings";
 
 interface ChatContextType extends ChatState {
   sendMessage: (content: string) => void;
   clearMessages: () => void;
+  loadMessages: (threadId: string) => Promise<void>;
+
+  canvasIsOpen: boolean;
+  setCanvasIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | undefined>();
+  const [canvasIsOpen, setCanvasIsOpen] = useState<boolean>(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
+
+  const { activeThreadId, createThread, setActiveThread, touchThread } =
+    useThreads();
 
   const hasStarted = messages.length > 0;
 
+  // Load messages when active thread changes
+  useEffect(() => {
+    if (activeThreadId) {
+      loadMessages(activeThreadId);
+    } else {
+      setMessages([]);
+    }
+  }, [activeThreadId]);
+
+  const loadMessages = useCallback(async (threadId: string): Promise<void> => {
+    if (!isTauriContext()) return;
+
+    try {
+      const loadedMessages = await getMessagesByThread(threadId);
+      setMessages(loadedMessages);
+      setError(undefined);
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+      setError("Failed to load messages");
+    }
+  }, []);
+
   const sendMessage = useCallback(
-    (content: string) => {
+    async (content: string) => {
       if (!content.trim() || isLoading) return;
 
-      // Add user message
-      const userMessage: Message = {
-        id: generateId(),
-        role: "user",
-        content: content.trim(),
-        createdAt: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
+      const trimmedContent = content.trim();
       setIsLoading(true);
+      setError(undefined);
 
-      // Simulate AI response (placeholder for actual AI integration)
-      setTimeout(() => {
-        const assistantMessage: Message = {
+      try {
+        let threadId = activeThreadId;
+
+        // Auto-create thread if none active
+        if (!threadId && isTauriContext()) {
+          const title =
+            trimmedContent.length > 30
+              ? trimmedContent.slice(0, 30) + "..."
+              : trimmedContent;
+          const thread = await createThread(title);
+          threadId = thread.id;
+          setActiveThread(threadId);
+        }
+
+        // Create user message
+        const userMessage: Message = {
           id: generateId(),
-          role: "assistant",
-          content: getPlaceholderResponse(content),
+          threadId: threadId || "",
+          role: "user",
+          content: trimmedContent,
           createdAt: new Date(),
         };
+
+        // Save user message to DB if in Tauri context
+        if (isTauriContext() && threadId) {
+          await createMessage(threadId, "user", trimmedContent);
+        }
+
+        setMessages((prev) => [...prev, userMessage]);
+
+        // Check if AI is configured
+        const aiConfig = isTauriContext() ? await getAIConfig() : null;
+
+        if (!aiConfig) {
+          // No AI configured - use placeholder
+          const assistantMessage: Message = {
+            id: generateId(),
+            threadId: threadId || "",
+            role: "assistant",
+            content:
+              "To get AI responses, please configure your API key in Settings → API Keys.",
+            createdAt: new Date(),
+          };
+
+          if (isTauriContext() && threadId) {
+            await createMessage(threadId, "assistant", assistantMessage.content);
+          }
+
+          setMessages((prev) => [...prev, assistantMessage]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Get AI client and make request
+        const client = await getAIClient();
+
+        if (!client) {
+          throw new Error("Failed to initialize AI client");
+        }
+
+        // Build messages for AI (include history)
+        const aiMessages: AIChatMessage[] = [
+          ...messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          { role: "user" as const, content: trimmedContent },
+        ];
+
+        // Create assistant message placeholder for streaming
+        const assistantMessageId = generateId();
+        const assistantMessage: Message = {
+          id: assistantMessageId,
+          threadId: threadId || "",
+          role: "assistant",
+          content: "",
+          createdAt: new Date(),
+          metadata: {
+            provider: aiConfig.provider,
+          },
+        };
+
         setMessages((prev) => [...prev, assistantMessage]);
+        setStreamingMessageId(assistantMessageId);
+
+        // Stream the response
+        const response = await client.chatStream(aiMessages, (chunk: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: msg.content + chunk }
+                : msg
+            )
+          );
+        });
+
+        setStreamingMessageId(null);
+
+        // Update with final metadata
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? {
+                  ...msg,
+                  metadata: {
+                    ...msg.metadata,
+                    model: response.model,
+                    tokens: response.tokens,
+                  },
+                }
+              : msg
+          )
+        );
+
+        // Save to DB
+        if (isTauriContext() && threadId) {
+          await createMessage(
+            threadId,
+            "assistant",
+            response.content,
+            {
+              model: response.model,
+              provider: aiConfig.provider,
+              tokens: response.tokens,
+            }
+          );
+          await touchThread(threadId);
+        }
+      } catch (err) {
+        console.error("Failed to send message:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to send message";
+        setError(errorMessage);
+
+        // Add error message to chat
+        const errorAssistantMessage: Message = {
+          id: generateId(),
+          threadId: activeThreadId || "",
+          role: "assistant",
+          content: `Sorry, I encountered an error: ${errorMessage}`,
+          createdAt: new Date(),
+          metadata: {
+            error: errorMessage,
+          },
+        };
+
+        setMessages((prev) => [...prev, errorAssistantMessage]);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     },
-    [isLoading],
+    [
+      isLoading,
+      activeThreadId,
+      createThread,
+      setActiveThread,
+      messages,
+      touchThread,
+    ]
   );
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-  }, []);
+    setError(undefined);
+    setActiveThread(null);
+  }, [setActiveThread]);
 
   return (
     <ChatContext.Provider
@@ -56,8 +242,13 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         messages,
         hasStarted,
         isLoading,
+        error,
         sendMessage,
         clearMessages,
+        loadMessages,
+
+        canvasIsOpen,
+        setCanvasIsOpen,
       }}
     >
       {children}
@@ -75,23 +266,4 @@ export const useChat = (): ChatContextType => {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-// Placeholder responses until AI is integrated
-function getPlaceholderResponse(userInput: string): string {
-  const input = userInput.toLowerCase();
-
-  if (input.includes("hello") || input.includes("hi")) {
-    return "Hello! I'm your AI workspace assistant. How can I help you today?";
-  }
-
-  if (input.includes("help")) {
-    return "I can help you organize your thoughts, manage tasks, and keep track of projects. Just chat naturally and I'll help structure things as we go.";
-  }
-
-  if (input.includes("task") || input.includes("todo")) {
-    return "I noticed you mentioned a task. Once we have more context, I can help you organize and track it in the right Space.";
-  }
-
-  return "I understand. As we continue our conversation, I'll help identify patterns and structure that emerges naturally. What would you like to explore?";
 }

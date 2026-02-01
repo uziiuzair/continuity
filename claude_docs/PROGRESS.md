@@ -2,13 +2,17 @@
 
 **Purpose**: Track implementation progress, decisions, and historical context for Ooozzy
 
-## Current State (Latest Update: 2025-02-01)
+## Current State (Latest Update: 2026-02-01)
 
 ### Recently Implemented
-- Project scaffolding (Next.js 16 + Tauri 2)
-- SQLite database configuration
-- Memory bank documentation system
-- Full product specification integration
+- Project scaffolding (Next.js 16 + Tauri 2 + React 19)
+- SQLite database with threads/messages schema
+- Full chat interface with streaming AI responses
+- OpenAI and Anthropic client integration
+- Markdown rendering for AI messages (react-markdown + remark-gfm)
+- Thread management (create, switch, list, delete)
+- Settings panel for API key configuration
+- Provider architecture (Database → Threads → Chat → View)
 
 ### In Progress
 - None currently
@@ -17,14 +21,85 @@
 - None currently
 
 ### Next Up
-- Git initialization
-- Database schema implementation
-- TypeScript type definitions
-- Basic UI layout
+- Spaces implementation
+- AI artifact extraction
+- Dashboard widgets
 
 ---
 
 ## Implementation History
+
+### Week of Feb 1, 2026
+
+#### Streaming AI Responses + Markdown Rendering
+
+**Date**: 2026-02-01
+**Type**: Feature
+**Status**: Complete
+
+**Problem/Requirement**:
+AI responses appeared all at once after completion. Users should see text appear progressively as the AI generates it. AI responses also needed markdown formatting support.
+
+**Solution**:
+Implemented streaming for both OpenAI and Anthropic clients with callback-based chunk delivery. Added react-markdown for rendering assistant messages.
+
+**Implementation Details**:
+- Added `chatStream` method to `AIClient` interface
+- OpenAI: Parse SSE format (`data: {"choices":[{"delta":{"content":"..."}}]}`)
+- Anthropic: Parse event format (`content_block_delta` events)
+- Chat provider creates empty assistant message, updates incrementally
+- Only saves to DB after stream completes
+- Assistant messages render with ReactMarkdown + remark-gfm
+
+**Files Modified**:
+- `lib/ai/types.ts` - Added `chatStream` to interface
+- `lib/ai/openai.ts` - SSE streaming implementation
+- `lib/ai/anthropic.ts` - Event streaming implementation
+- `providers/chat-provider.tsx` - Incremental message updates
+- `components/chat/ChatMessage.tsx` - Markdown rendering
+- `package.json` - Added react-markdown, remark-gfm
+
+**Key Decisions**:
+- **Callback-based**: `onChunk(text)` simpler than async iterators
+- **Optimistic UI**: Create empty message before streaming starts
+- **DB on complete**: Only persist final content, not incremental
+- **User plain text**: Only assistant messages get markdown
+
+---
+
+#### Chat Interface + AI Integration
+
+**Date**: 2026-02-01
+**Type**: Feature
+**Status**: Complete
+
+**Problem/Requirement**:
+Need working chat interface that connects to AI providers (OpenAI, Anthropic) with BYOK (bring your own key) setup.
+
+**Solution**:
+Built full chat interface with provider architecture, AI client abstraction, and settings panel for API keys.
+
+**Implementation Details**:
+- Created `ChatProvider` for message state management
+- Created `ThreadsProvider` for thread management
+- Built AI client factory with OpenAI/Anthropic implementations
+- Settings stored in SQLite with encryption consideration
+- Messages persist to database with thread association
+
+**Files Created**:
+- `lib/ai/types.ts` - AIClient interface
+- `lib/ai/openai.ts` - OpenAI client
+- `lib/ai/anthropic.ts` - Anthropic client
+- `lib/ai/index.ts` - Client factory
+- `providers/chat-provider.tsx`
+- `providers/threads-provider.tsx`
+- `lib/db/messages.ts`
+- `lib/db/threads.ts`
+- `lib/db/settings.ts`
+- `components/chat/*`
+- `components/settings/*`
+
+---
 
 ### Week of Feb 1, 2025
 
@@ -292,21 +367,30 @@ No migrations yet - initial schema to be implemented.
 
 ## Timeline Summary
 
+### 2026
+
+**February - Week 1**:
+- Streaming AI responses implemented
+- Markdown rendering for chat
+- Full chat interface working
+- OpenAI + Anthropic integration complete
+
+**February - Upcoming**:
+- Spaces implementation
+- AI artifact extraction
+- Dashboard widgets
+
+**Q1 Goals**:
+- ✅ Working chat interface
+- Artifact extraction
+- Basic dashboard
+- Beta release
+
 ### 2025
 
 **February - Week 1**:
 - Project initialization
 - Memory bank setup
 - Product spec integration
-
-**February - Upcoming**:
-- Database schema implementation
-- Basic UI layout
-- Chat interface
-- AI integration
-
-**Q1 Goals**:
-- Working chat interface
-- Artifact extraction
-- Basic dashboard
-- Beta release
+- Database schema (threads, messages)
+- Chat UI foundation

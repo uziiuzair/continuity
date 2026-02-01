@@ -408,31 +408,152 @@ export interface SpaceWithArtifacts {
 
 ## AI Integration Patterns
 
-### AI Client Abstraction
+### AI Client Interface
 
 ```typescript
-// src/lib/ai/client.ts
-import type { AIConfig, AIResponse } from "@/types";
-import { getSetting } from "../db/settings";
+// lib/ai/types.ts
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
-export async function getAIClient(): Promise<AIClient> {
+export interface AIResponse {
+  content: string;
+  model: string;
+  tokens?: {
+    prompt: number;
+    completion: number;
+  };
+}
+
+export interface AIClient {
+  chat(messages: ChatMessage[]): Promise<AIResponse>;
+  chatStream(
+    messages: ChatMessage[],
+    onChunk: (chunk: string) => void
+  ): Promise<AIResponse>;
+}
+```
+
+### AI Client Factory
+
+```typescript
+// lib/ai/index.ts
+import { getAIConfig } from "../db/settings";
+import { OpenAIClient } from "./openai";
+import { AnthropicClient } from "./anthropic";
+
+export async function getAIClient(): Promise<AIClient | null> {
   const config = await getAIConfig();
+  if (!config) return null;
 
   switch (config.provider) {
     case "openai":
-      return new OpenAIClient(config);
+      return new OpenAIClient({ apiKey: config.apiKey, model: config.model });
     case "anthropic":
-      return new AnthropicClient(config);
-    case "local":
-      return new LocalClient(config);
+      return new AnthropicClient({ apiKey: config.apiKey, model: config.model });
     default:
-      throw new Error(`Unknown provider: ${config.provider}`);
+      return null;
   }
 }
+```
 
-interface AIClient {
-  chat(messages: Message[], systemPrompt: string): Promise<AIResponse>;
+### Streaming Implementation
+
+**OpenAI SSE Format**:
+```typescript
+// lib/ai/openai.ts
+async chatStream(
+  messages: ChatMessage[],
+  onChunk: (chunk: string) => void
+): Promise<AIResponse> {
+  const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: this.model,
+      messages: openAIMessages,
+      stream: true,
+    }),
+  });
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let accumulatedContent = "";
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+
+      const data = trimmedLine.slice(6);
+      if (data === "[DONE]") continue;
+
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) {
+          accumulatedContent += delta;
+          onChunk(delta);
+        }
+      } catch {
+        // Skip malformed chunks
+      }
+    }
+  }
+
+  return { content: accumulatedContent, model: this.model };
 }
+```
+
+**Anthropic Event Format**:
+```typescript
+// lib/ai/anthropic.ts - similar but parses content_block_delta events
+// Event format: event: content_block_delta
+// Data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}
+```
+
+### Using Streaming in Chat Provider
+
+```typescript
+// providers/chat-provider.tsx
+const sendMessage = async (content: string) => {
+  // 1. Create empty assistant message placeholder
+  const assistantMessageId = generateId();
+  const assistantMessage: Message = {
+    id: assistantMessageId,
+    threadId: threadId || "",
+    role: "assistant",
+    content: "",  // Empty initially
+    createdAt: new Date(),
+  };
+  setMessages((prev) => [...prev, assistantMessage]);
+
+  // 2. Stream response, updating message incrementally
+  const response = await client.chatStream(aiMessages, (chunk: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: msg.content + chunk }
+          : msg
+      )
+    );
+  });
+
+  // 3. Save complete message to DB
+  await createMessage(threadId, "assistant", response.content);
+};
 ```
 
 ### Artifact Extraction
@@ -484,6 +605,71 @@ function buildContextPrompt(space: SpaceWithArtifacts): string {
 ```
 
 ## UI Patterns
+
+### Markdown Rendering for AI Messages
+
+```typescript
+// components/chat/ChatMessage.tsx
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+export default function ChatMessage({ message }: ChatMessageProps) {
+  const isUser = message.role === "user";
+
+  return isUser ? (
+    // User messages: plain text
+    <p className="whitespace-pre-wrap">{message.content}</p>
+  ) : (
+    // Assistant messages: markdown
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ children }) => (
+          <p className="leading-relaxed mb-2 last:mb-0">{children}</p>
+        ),
+        code: ({ className, children, ...props }) => {
+          const isInline = !className;
+          if (isInline) {
+            return (
+              <code className="bg-black/10 px-1.5 py-0.5 rounded text-sm">
+                {children}
+              </code>
+            );
+          }
+          return (
+            <code className="block bg-black/10 p-3 rounded-lg text-sm overflow-x-auto">
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => (
+          <pre className="bg-black/10 p-3 rounded-lg overflow-x-auto my-2">
+            {children}
+          </pre>
+        ),
+        ul: ({ children }) => (
+          <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>
+        ),
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+            {children}
+          </a>
+        ),
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-gray-300 pl-4 my-2 italic">
+            {children}
+          </blockquote>
+        ),
+      }}
+    >
+      {message.content}
+    </ReactMarkdown>
+  );
+}
+```
 
 ### Chat Input with Submission
 

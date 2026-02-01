@@ -1,24 +1,32 @@
 # Active Context
 
-**Last Updated**: 2026-02-01 (Database setup with test UI complete)
-**Current Session Focus**: Database infrastructure foundation
+**Last Updated**: 2026-02-01 (Streaming AI + Markdown rendering complete)
+**Current Session Focus**: AI streaming and chat UX improvements
 
 ## Current Work
 
 ### Recently Completed (Latest Session)
 
-- **SQLite Database Setup & Test UI - COMPLETE**
-  - Fixed broken top-level await in `db.ts` with lazy initialization pattern
-  - Created type-safe CRUD service (`db-service.ts`)
-  - Built test UI component for database verification
-  - Added `@/*` path alias to tsconfig.json
+- **Streaming AI Responses - COMPLETE**
+  - Added `chatStream` method to `AIClient` interface
+  - Implemented SSE streaming for OpenAI (parses `delta.content`)
+  - Implemented event streaming for Anthropic (parses `content_block_delta`)
+  - Updated `chat-provider.tsx` to stream responses incrementally
+  - Messages appear progressively as AI generates text
 
-  - **Files Created/Modified**:
-    - `src/lib/db.ts` - Fixed async init with `getDb()` + `isTauriContext()`
-    - `src/lib/db-service.ts` - NEW: Schema init + CRUD for test_items
-    - `app/components/DbTest.tsx` - NEW: Test UI component
-    - `app/page.tsx` - Renders DbTest component
-    - `tsconfig.json` - Added baseUrl + paths for `@/*` alias
+- **Markdown Rendering in Chat - COMPLETE**
+  - Installed `react-markdown` and `remark-gfm`
+  - Assistant messages render with full markdown support
+  - Code blocks, lists, links, headers, blockquotes styled
+  - User messages remain plain text
+
+- **Files Modified**:
+  - `lib/ai/types.ts` - Added `chatStream` method to interface
+  - `lib/ai/openai.ts` - Implemented streaming with SSE parsing
+  - `lib/ai/anthropic.ts` - Implemented streaming with event parsing
+  - `providers/chat-provider.tsx` - Incremental message updates
+  - `components/chat/ChatMessage.tsx` - Markdown rendering for assistant
+  - `package.json` - Added react-markdown, remark-gfm
 
 ### Active Tasks
 - None currently
@@ -37,12 +45,15 @@
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| SQLite DB | Data persistence | ✅ Working (test schema) |
-| Chat Engine | Primary interface, write path | 📅 To Build |
+| SQLite DB | Data persistence | ✅ Working |
+| Threads | Conversation containers | ✅ Working |
+| Messages | Chat history | ✅ Working |
+| Chat Engine | Primary interface, write path | ✅ Working (with streaming) |
+| AI Clients | OpenAI/Anthropic integration | ✅ Working (with streaming) |
+| Settings | API keys, preferences | ✅ Working |
 | Spaces | Context containers | 📅 To Build |
 | Artifacts | Derived data (tasks, notes, decisions) | 📅 To Build |
 | Dashboard | Read-only projection layer | 📅 To Build |
-| AI Service | Intent interpretation, extraction | 📅 To Build |
 
 ### Hard Constraints (v1)
 
@@ -54,76 +65,123 @@
 
 ### Project State
 
-- Next.js 16 + Tauri 2 project with working database
-- Test UI verifies SQLite read/write operations
-- Path aliases configured (`@/*` → `src/*`)
+- Next.js 16 + Tauri 2 + React 19
+- Full chat interface with streaming AI responses
+- Markdown rendering for AI messages
+- Thread management (create, switch, list)
+- Settings panel for API key configuration
 - Build passes (`npm run build`)
-- Ready to implement real schema
+
+## Architecture Overview
+
+### Provider Hierarchy
+```
+DatabaseProvider
+└── ThreadsProvider
+    └── ChatProvider
+        └── ViewProvider
+            └── App Components
+```
+
+### AI Client Architecture
+```typescript
+// lib/ai/types.ts
+interface AIClient {
+  chat(messages: ChatMessage[]): Promise<AIResponse>;
+  chatStream(
+    messages: ChatMessage[],
+    onChunk: (chunk: string) => void
+  ): Promise<AIResponse>;
+}
+```
+
+### Key Directories
+```
+lib/
+├── ai/
+│   ├── types.ts       # AIClient interface, ChatMessage, AIResponse
+│   ├── openai.ts      # OpenAI client with streaming
+│   ├── anthropic.ts   # Anthropic client with streaming
+│   └── index.ts       # Client factory
+├── db/
+│   ├── index.ts       # Database connection
+│   ├── messages.ts    # Message CRUD
+│   ├── threads.ts     # Thread CRUD
+│   └── settings.ts    # Settings CRUD
+
+providers/
+├── chat-provider.tsx      # Chat state, message sending with streaming
+├── threads-provider.tsx   # Thread management
+├── database-provider.tsx  # DB initialization
+└── view-provider.tsx      # UI state (panels, views)
+
+components/
+├── chat/
+│   ├── ChatMessage.tsx    # Message display with markdown
+│   ├── ChatInput.tsx      # Message input
+│   └── ...
+├── layout/
+│   ├── AppShell.tsx       # Main layout
+│   └── Sidebar.tsx        # Navigation
+└── settings/              # Settings UI
+```
 
 ## Session History
 
 ### This Session
-1. Fixed `src/lib/db.ts` top-level await issue
-2. Created `src/lib/db-service.ts` with CRUD operations
-3. Built `app/components/DbTest.tsx` test UI
-4. Added path aliases to tsconfig.json
-5. Verified build passes
+1. Added streaming support to AI client types
+2. Implemented OpenAI SSE streaming
+3. Implemented Anthropic event streaming
+4. Updated chat provider for incremental message updates
+5. Added markdown rendering with react-markdown
+6. Verified build passes
 
 ### Key Decisions
-- **Lazy database init**: `getDb()` function instead of module-level await
-- **Tauri context check**: `isTauriContext()` for graceful degradation in browser
-- **Test schema**: `test_items` table for verification (will be dropped later)
+- **Callback-based streaming**: Simple `onChunk(text)` callback vs async iterators
+- **Optimistic message creation**: Empty assistant message created before streaming
+- **Save on complete**: Only persist to DB when stream finishes
+- **User messages plain text**: Only assistant messages get markdown rendering
 
 ## Next Steps
 
 ### Immediate Priorities
 
-1. **Verify in Tauri** (manual test):
+1. **Test streaming in Tauri**:
    - Run `npm run tauri dev`
-   - Add/delete items to verify persistence
-   - Close and reopen to verify data survives
+   - Send messages and verify streaming works
+   - Test with both OpenAI and Anthropic
 
-2. **Initialize Git Repository**:
-   - `git init`
-   - Create `.gitignore`
-   - Initial commit
+2. **Implement Spaces**:
+   - Space CRUD operations
+   - Space switching in UI
+   - Link threads to spaces
 
-3. **Implement Real Schema**:
-   - Create migration with spaces, messages, artifacts tables
-   - Drop test_items table
-   - Implement actual CRUD services
+3. **AI Artifact Extraction**:
+   - Parse AI responses for tasks, notes, decisions
+   - Create artifacts from conversation
+   - Link artifacts to source messages
 
-4. **TypeScript Types**:
-   - Define types for all artifacts
-   - Define types for API responses
-   - Create shared type exports
-
-### Build Order (Recommended)
+### Build Order
 
 ```
-Phase 1: Foundation ← We are here
-├── 1. ✅ Database setup + test verification
-├── 2. Git + .gitignore
-├── 3. Real database schema + migrations
-└── 4. TypeScript types + basic layout
-
-Phase 2: Chat + Spaces
+Phase 2: Chat + Spaces ← We are here
+├── ✅ Chat input + message display
+├── ✅ Message persistence
+├── ✅ AI integration (streaming)
 ├── 5. Space CRUD (minimal)
-├── 6. Chat input + message display
-├── 7. Message persistence
-└── 8. Space switching
+└── 6. Space switching
 
 Phase 3: AI Integration
-├── 9. AI client (BYOK setup)
-├── 10. Artifact extraction
-├── 11. Response generation
-└── 12. Topic detection
+├── ✅ AI client (BYOK setup)
+├── 7. Artifact extraction
+├── 8. Response generation with context
+└── 9. Topic detection
 
 Phase 4: Dashboard
-├── 13. Widget system
-├── 14. Task list widget
-├── 15. Other widgets
-└── 16. Auto-layout
+├── 10. Widget system
+├── 11. Task list widget
+├── 12. Other widgets
+└── 13. Auto-layout
 ```
 
 ## Context for Next Session
@@ -131,22 +189,28 @@ Phase 4: Dashboard
 ### What's Working
 - Next.js dev server runs (`npm run dev`)
 - Tauri builds (`npm run tauri dev`)
-- SQLite database with test_items table
-- Path aliases (`@/*`)
+- SQLite database with threads/messages
+- Full chat interface with streaming
+- Markdown rendering for AI responses
+- Settings panel for API keys
 - TypeScript build passes
 
-### Database Pattern Established
+### Streaming Pattern Established
 ```typescript
-// Lazy initialization
-import { getDb, isTauriContext } from "@/lib/db";
-
-// CRUD pattern
-const db = await getDb();
-await db.execute("INSERT...", [params]);
-const rows = await db.select<Type[]>("SELECT...");
+// In chat-provider.tsx
+const response = await client.chatStream(aiMessages, (chunk: string) => {
+  setMessages((prev) =>
+    prev.map((msg) =>
+      msg.id === assistantMessageId
+        ? { ...msg, content: msg.content + chunk }
+        : msg
+    )
+  );
+});
 ```
 
 ### Important Notes
 - Test with `npm run tauri dev` (not `npm run dev`)
-- Database file: `~/Library/Application Support/continuity/test.db`
-- Drop `test_items` table when implementing real schema
+- Both OpenAI and Anthropic support streaming
+- Markdown uses react-markdown + remark-gfm
+- User messages stay plain text, assistant gets markdown

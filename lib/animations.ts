@@ -18,6 +18,23 @@ export const sidebarVariants: Variants = {
   },
 };
 
+export const canvasVariants: Variants = {
+  expanded: {
+    width: "65vw",
+    transition: {
+      duration: 0.1,
+      ease: "easeInOut",
+    },
+  },
+  collapsed: {
+    width: 0,
+    transition: {
+      duration: 0.1,
+      ease: "easeInOut",
+    },
+  },
+};
+
 export const sidebarContentVariants: Variants = {
   expanded: {
     opacity: 1,

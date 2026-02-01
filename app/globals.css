@@ -1,25 +1,235 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
-/* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-Medium.ttf") format("truetype"); font-weight: 500; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-MediumItalic.ttf") format("truetype"); font-weight: 500; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-SemiBold.ttf") format("truetype"); font-weight: 600; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-SemiBoldItalic.ttf") format("truetype"); font-weight: 600; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Cormorant Garamond"; src: url("./fonts/CormorantGaramond-BoldItalic.ttf") format("truetype"); font-weight: 700; font-style: italic; } /* prettier-ignore */
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-MediumItalic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-SemiBoldItalic.ttf") format("truetype");
+  font-weight: 600;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/CormorantGaramond-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+}
 
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-Medium.ttf") format("truetype"); font-weight: 500; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-MediumItalic.ttf") format("truetype"); font-weight: 500; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-SemiBold.ttf") format("truetype"); font-weight: 600; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-SemiBoldItalic.ttf") format("truetype"); font-weight: 600; font-style: italic; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; } /* prettier-ignore */
-@font-face { font-family: "Noto Sans"; src: url("./fonts/NotoSans-BoldItalic.ttf") format("truetype"); font-weight: 700; font-style: italic; } /* prettier-ignore */
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-MediumItalic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-SemiBoldItalic.ttf") format("truetype");
+  font-weight: 600;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Noto Sans";
+  src: url("./fonts/NotoSans-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+}
 
 :root {
+  --color-electric-violet: #7240fe;
+  --color-electric-violet-50: #f4f2ff;
+  --color-electric-violet-100: #ebe8ff;
+  --color-electric-violet-200: #dad4ff;
+  --color-electric-violet-300: #bfb1ff;
+  --color-electric-violet-400: #9f85ff;
+  --color-electric-violet-500: #7240fe;
+  --color-electric-violet-600: #7231f6;
+  --color-electric-violet-700: #631fe2;
+  --color-electric-violet-800: #5219be;
+  --color-electric-violet-900: #45179b;
+  --color-electric-violet-950: #290c69;
+
+  --color-heliotrope: #d36cff;
+  --color-heliotrope-50: #fbf3ff;
+  --color-heliotrope-100: #f7e7ff;
+  --color-heliotrope-200: #eeceff;
+  --color-heliotrope-300: #e4a7ff;
+  --color-heliotrope-400: #d36cff;
+  --color-heliotrope-500: #c03ef7;
+  --color-heliotrope-600: #a71edb;
+  --color-heliotrope-700: #8d15b6;
+  --color-heliotrope-800: #751395;
+  --color-heliotrope-900: #641679;
+  --color-heliotrope-950: #400151;
+
+  --color-french-rose: #ee5180;
+  --color-french-rose-50: #fef2f4;
+  --color-french-rose-100: #fee5ea;
+  --color-french-rose-200: #fccfda;
+  --color-french-rose-300: #faa7bd;
+  --color-french-rose-400: #f67699;
+  --color-french-rose-500: #ee5180;
+  --color-french-rose-600: #d92563;
+  --color-french-rose-700: #b71953;
+  --color-french-rose-800: #99184c;
+  --color-french-rose-900: #831847;
+  --color-french-rose-950: #490822;
+
+  --color-lavender-rose: #ff83d9;
+  --color-lavender-rose-50: #fef1fa;
+  --color-lavender-rose-100: #fee5f7;
+  --color-lavender-rose-200: #ffcbf2;
+  --color-lavender-rose-300: #ffa1e5;
+  --color-lavender-rose-400: #ff83d9;
+  --color-lavender-rose-500: #fa3aba;
+  --color-lavender-rose-600: #ea1899;
+  --color-lavender-rose-700: #cc0a7c;
+  --color-lavender-rose-800: #a80c66;
+  --color-lavender-rose-900: #8c0f56;
+  --color-lavender-rose-950: #560131;
+
+  --color-coral: #ff8b58;
+  --color-coral-50: #fff3ed;
+  --color-coral-100: #ffe4d4;
+  --color-coral-200: #ffc5a9;
+  --color-coral-300: #ff8b58;
+  --color-coral-400: #fe6a39;
+  --color-coral-500: #fc4213;
+  --color-coral-600: #ed2809;
+  --color-coral-700: #c51909;
+  --color-coral-800: #9c1610;
+  --color-coral-900: #7e1510;
+  --color-coral-950: #440706;
+
+  --color-selective-yellow: #ffb600;
+  --color-selective-yellow-50: #fffeea;
+  --color-selective-yellow-100: #fff9c5;
+  --color-selective-yellow-200: #fff385;
+  --color-selective-yellow-300: #ffe746;
+  --color-selective-yellow-400: #ffd61b;
+  --color-selective-yellow-500: #ffb600;
+  --color-selective-yellow-600: #e28b00;
+  --color-selective-yellow-700: #bb6202;
+  --color-selective-yellow-800: #984b08;
+  --color-selective-yellow-900: #7c3e0b;
+  --color-selective-yellow-950: #481f00;
+
+  --color-bright-turquoise: #02d8df;
+  --color-bright-turquoise-50: #ecfffe;
+  --color-bright-turquoise-100: #cefffd;
+  --color-bright-turquoise-200: #a3fefe;
+  --color-bright-turquoise-300: #64fbfc;
+  --color-bright-turquoise-400: #1eeef2;
+  --color-bright-turquoise-500: #02d8df;
+  --color-bright-turquoise-600: #05a7b5;
+  --color-bright-turquoise-700: #0b8493;
+  --color-bright-turquoise-800: #136a77;
+  --color-bright-turquoise-900: #145865;
+  --color-bright-turquoise-950: #073b45;
+
+  --color-caribbean-green: #00c68e;
+  --color-caribbean-green-50: #eafff6;
+  --color-caribbean-green-100: #cdfee7;
+  --color-caribbean-green-200: #a0fad5;
+  --color-caribbean-green-300: #63f2c0;
+  --color-caribbean-green-400: #25e2a6;
+  --color-caribbean-green-500: #00c68e;
+  --color-caribbean-green-600: #00a476;
+  --color-caribbean-green-700: #008362;
+  --color-caribbean-green-800: #00674f;
+  --color-caribbean-green-900: #005542;
+  --color-caribbean-green-950: #003026;
+
+  --color-radical-red: #ff3956;
+  --color-radical-red-50: #fff0f1;
+  --color-radical-red-100: #ffe2e4;
+  --color-radical-red-200: #ffcad0;
+  --color-radical-red-300: #ff9fa9;
+  --color-radical-red-400: #ff697b;
+  --color-radical-red-500: #ff3956;
+  --color-radical-red-600: #ed113c;
+  --color-radical-red-700: #c80832;
+  --color-radical-red-800: #a80931;
+  --color-radical-red-900: #8f0c31;
+  --color-radical-red-950: #500115;
+
+  --color-lavender: #9d5dff;
+  --color-lavender-50: #f9f5ff;
+  --color-lavender-100: #f0e7ff;
+  --color-lavender-200: #e4d3ff;
+  --color-lavender-300: #cfb0ff;
+  --color-lavender-400: #b17eff;
+  --color-lavender-500: #9d5dff;
+  --color-lavender-600: #7b2af3;
+  --color-lavender-700: #691ad6;
+  --color-lavender-800: #5b1aaf;
+  --color-lavender-900: #4b178c;
+  --color-lavender-950: #300269;
+
   --background-color: #faf9f5;
   --sidebar-bg: #f5f4f0;
   --border-color: #d9d8d5;
@@ -28,6 +238,45 @@
   --accent: #d97757;
   --user-bubble: #e8f4ff;
   --assistant-bubble: #f5f5f5;
+
+  --bn-colors-editor-text: #3f3f3f;
+  --bn-colors-editor-background: #faf9f5;
+  --bn-colors-menu-text: #3f3f3f;
+  --bn-colors-menu-background: #faf9f5;
+  --bn-colors-tooltip-text: #3f3f3f;
+  --bn-colors-tooltip-background: #efefef;
+  --bn-colors-hovered-text: #3f3f3f;
+  --bn-colors-hovered-background: #efefef;
+  --bn-colors-selected-text: #faf9f5;
+  --bn-colors-selected-background: #3f3f3f;
+  --bn-colors-disabled-text: #afafaf;
+  --bn-colors-disabled-background: #efefef;
+
+  --bn-colors-shadow: #cfcfcf;
+  --bn-colors-border: #efefef;
+  --bn-colors-side-menu: #cfcfcf;
+
+  --bn-colors-highlights-gray-text: #9b9a97;
+  --bn-colors-highlights-gray-background: #ebeced;
+  --bn-colors-highlights-brown-text: #64473a;
+  --bn-colors-highlights-brown-background: #e9e5e3;
+  --bn-colors-highlights-red-text: var(--color-radical-red);
+  --bn-colors-highlights-red-background: var(--color-radical-red-50);
+  --bn-colors-highlights-orange-text: var(--color-coral);
+  --bn-colors-highlights-orange-background: var(--color-coral-50);
+  --bn-colors-highlights-yellow-text: var(--color-selective-yellow);
+  --bn-colors-highlights-yellow-background: var(--color-selective-yellow-50);
+  --bn-colors-highlights-green-text: var(--color-caribbean-green);
+  --bn-colors-highlights-green-background: var(--color-caribbean-green-50);
+  --bn-colors-highlights-blue-text: var(--color-bright-turquoise);
+  --bn-colors-highlights-blue-background: var(--color-bright-turquoise-50);
+  --bn-colors-highlights-purple-text: var(--color-lavender);
+  --bn-colors-highlights-purple-background: var(--color-lavender-50);
+  --bn-colors-highlights-pink-text: var(--color-lavender-rose);
+  --bn-colors-highlights-pink-background: var(--color-lavender-rose-50);
+
+  --bn-font-family: var(--font-sans);
+  --bn-border-radius: 0;
 }
 
 @theme {
