@@ -58,6 +58,11 @@ export const AddDropdown = ({ onAddBlock }: AddDropdownProps) => {
       onClick: () =>
         handleAddBlock("listItem", { listType: "todo", checked: false }),
     },
+    {
+      icon: <TableIcon className="size-3" />,
+      text: "Database",
+      onClick: () => handleAddBlock("database"),
+    },
     // Future block types (not implemented yet)
     // {
     //   icon: <CalloutIcon className="size-3" />,

@@ -105,10 +105,9 @@ export function createDefaultDatabase(title?: string): DatabaseBlockData {
 
 export function createTaskDatabase(): DatabaseBlockData {
   const nameColumn = createColumn("Task", "text");
-  const statusColumn = createColumn("Status", "select");
+  const statusColumn = createColumn("Status", "status");
   const priorityColumn = createColumn("Priority", "select");
   const dueColumn = createColumn("Due Date", "date");
-  const doneColumn = createColumn("Done", "checkbox");
 
   statusColumn.options = [
     createSelectOption("To Do", "gray"),
@@ -124,7 +123,7 @@ export function createTaskDatabase(): DatabaseBlockData {
   ];
 
   return {
-    columns: [nameColumn, statusColumn, priorityColumn, dueColumn, doneColumn],
+    columns: [nameColumn, statusColumn, priorityColumn, dueColumn],
     rows: [],
     title: "Tasks",
   };
@@ -151,11 +150,13 @@ export function getDefaultCellValue(type: DatabaseColumnType): CellValue {
       return "";
     case "number":
       return null;
-    case "checkbox":
-      return false;
     case "select":
+    case "status":
       return null;
+    case "multiselect":
+      return [];
     case "date":
+    case "time":
       return null;
     default:
       return null;
@@ -174,12 +175,19 @@ export function formatCellValue(
       return String(value);
     case "number":
       return typeof value === "number" ? value.toString() : "";
-    case "checkbox":
-      return value ? "Yes" : "No";
     case "select":
+    case "status":
       if (options && typeof value === "string") {
         const option = options.find((o) => o.id === value);
         return option?.value || "";
+      }
+      return "";
+    case "multiselect":
+      if (options && Array.isArray(value)) {
+        return value
+          .map((id) => options.find((o) => o.id === id)?.value || "")
+          .filter(Boolean)
+          .join(", ");
       }
       return "";
     case "date":
@@ -191,6 +199,8 @@ export function formatCellValue(
         }
       }
       return "";
+    case "time":
+      return typeof value === "string" ? value : "";
     default:
       return String(value);
   }
@@ -211,10 +221,11 @@ export function isValidCellValue(
       return typeof value === "string";
     case "number":
       return typeof value === "number" && !isNaN(value);
-    case "checkbox":
-      return typeof value === "boolean";
     case "select":
+    case "status":
       return typeof value === "string";
+    case "multiselect":
+      return Array.isArray(value) && value.every((v) => typeof v === "string");
     case "date":
       if (typeof value !== "string") return false;
       try {
@@ -223,6 +234,8 @@ export function isValidCellValue(
       } catch {
         return false;
       }
+    case "time":
+      return typeof value === "string";
     default:
       return true;
   }

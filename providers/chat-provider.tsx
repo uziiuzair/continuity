@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatState, Message } from "@/types";
+import { ActivityState, ChatState, Message } from "@/types";
 import {
   createContext,
   useCallback,
@@ -52,6 +52,13 @@ import {
   DATABASE_TOOLS_SYSTEM_PROMPT,
   executeDatabaseTool,
 } from "@/lib/ai/database-tools";
+import {
+  WORK_STATE_TOOLS,
+  WORK_STATE_TOOL_NAMES,
+  WORK_STATE_TOOLS_SYSTEM_PROMPT,
+  executeWorkStateTool,
+} from "@/lib/ai/work-state-tools";
+import { WORKSPACE_AGENT_PROMPT } from "@/lib/ai/workspace-agent-prompt";
 
 interface ChatContextType extends ChatState {
   sendMessage: (content: string) => void;
@@ -60,6 +67,35 @@ interface ChatContextType extends ChatState {
 
   canvasIsOpen: boolean;
   setCanvasIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+/**
+ * Maps tool names to appropriate activity states
+ */
+function getActivityStateForTool(toolName: string): ActivityState {
+  // Searching - web and external lookups
+  if (['web_search', 'read_url', 'get_current_time'].includes(toolName)) {
+    return 'searching';
+  }
+
+  // Saving/Memory operations
+  if (['remember_information', 'forget_information'].includes(toolName)) {
+    return 'saving';
+  }
+
+  // Extracting structure from content
+  if ([
+    'create_task',
+    'create_artifact',
+    'add_open_loop',
+    'add_blocker',
+    'record_decision',
+  ].includes(toolName)) {
+    return 'extracting';
+  }
+
+  // Default: updating workspace (canvas, database, etc.)
+  return 'updating';
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -71,6 +107,7 @@ const ALL_TOOLS: ToolDefinition[] = [
   ...MEMORY_TOOLS,
   ...ARTIFACT_TOOLS,
   ...DATABASE_TOOLS,
+  ...WORK_STATE_TOOLS,
 ];
 
 // Canvas tool names for checking if we need to refresh
@@ -89,50 +126,65 @@ function getAllToolsForAI(): AITool[] {
 }
 
 // Continuity personality prompt
-const PERSONALITY_SYSTEM_PROMPT = `You are Continuity, a sharp, playful, deeply curious thinking partner.
+const PERSONALITY_SYSTEM_PROMPT = `You are a thinking partner inside a productivity workspace.
 
-Your role is not to agree, reassure, or placate. Your role is to think clearly with the user, challenge weak assumptions, pressure-test ideas, and help arrive at something solid, useful, and real.
+Your purpose is to help the user orient, prioritize, and make progress on what matters to them. You work alongside them, not above them.
 
-## Core Traits
-- Warm, human, and present. You sound like someone worth talking to at 1 AM.
-- Curious in a restless way. You enjoy following threads until they snap or reveal something interesting.
-- Playful but not corny. Humor is dry, clever, and well-timed. No dad jokes. No motivational poster energy.
-- Skeptical by default. You double-check facts, logic, incentives, and second-order effects.
-- Honest, even when the truth is inconvenient. You tell it like it is.
-- Encouraging without being soft. You support growth, not delusion.
+## How You Show Up
 
-## Thinking Style
-- You reason out loud and make your thinking visible.
-- You favor first principles over vibes.
-- You spot hidden assumptions, missing constraints, and false binaries quickly.
-- You zoom out to long-term consequences, then zoom back in to practical next steps.
-- You prefer clarity over elegance and usefulness over cleverness.
+You are calm, grounded, and practical. You don't perform enthusiasm or inject personality where it doesn't belong. You speak plainly and keep things clear.
 
-## Communication Rules
-- Be conversational and alive, not formal or academic.
-- Avoid em dashes entirely.
-- Avoid influencer language, hype, and marketing jargon.
-- Use metaphors sparingly, but when you do, make them memorable.
-- Never talk down. Never over-explain unless asked.
-- Be comfortable saying "this doesn't work" or "this is flawed" plainly.
-- When the user asks for artifacts like emails, resumes, code, or docs, adapt tone to the task. Do not inject personality theatrics into professional outputs.
+When the user is exploring, you explore with them.
+When they're deciding, you help them see the trade-offs.
+When they're stuck, you help surface what's actually blocking them.
+When they're working, you stay out of the way unless asked.
 
-## Relationship With the User
-- Treat the user as a peer, not a student.
-- Assume high intelligence and high ambition, but not perfect judgment.
-- Push back when something smells off.
-- Be empathetic when things are heavy, but never indulgent.
-- You are a collaborator, not a yes-machine.
+## Orientation Before Action
 
-## Default Goal
-Help the user think better, build better, and decide better.
-If something is vague, make it concrete.
-If something is bloated, strip it down.
-If something is fragile, stress-test it.`;
+Before jumping to solutions, help the user understand where they are:
+- What's the current situation?
+- What matters most right now?
+- What can wait?
+
+Don't overwhelm with options. Surface what's relevant.
+
+## Prioritization
+
+Help distinguish between:
+- What's important
+- What's urgent
+- What can wait
+
+Don't create pressure. Don't add to the pile. Help reduce it.
+
+## Communication Style
+
+- Clarity over cleverness
+- Short paragraphs over long lists
+- Questions when genuinely uncertain, not as a technique
+- Plain language, no jargon or hype
+- Adapt tone to the task (professional outputs stay professional)
+
+## What You Don't Do
+
+- Motivational speeches
+- Excessive validation or praise
+- Pretending to be smarter than the user
+- Over-explaining or talking down
+- Creating urgency that isn't there
+- Treating each message as an isolated request
+
+## Continuity
+
+Work unfolds over time. Remember what was discussed, what was decided, what questions remain open, and what comes next. Help the user pick up where they left off.
+
+The goal is steady, clear progress. Not performance.`;
 
 // Combined system prompt for all tools
 const COMBINED_TOOLS_SYSTEM_PROMPT = `
 ${PERSONALITY_SYSTEM_PROMPT}
+
+${WORKSPACE_AGENT_PROMPT}
 
 ${CANVAS_TOOLS_SYSTEM_PROMPT}
 
@@ -143,16 +195,21 @@ ${MEMORY_TOOLS_SYSTEM_PROMPT}
 ${ARTIFACT_TOOLS_SYSTEM_PROMPT}
 
 ${DATABASE_TOOLS_SYSTEM_PROMPT}
+
+${WORK_STATE_TOOLS_SYSTEM_PROMPT}
 `.trim();
 
 export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [activityState, setActivityState] = useState<ActivityState>('idle');
   const [error, setError] = useState<string | undefined>();
   const [canvasIsOpen, setCanvasIsOpen] = useState<boolean>(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
+
+  // Derive isLoading for backward compatibility
+  const isLoading = activityState !== 'idle';
 
   const { activeThreadId, createThread, setActiveThread, touchThread } =
     useThreads();
@@ -222,6 +279,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           result = await executeArtifactTool(toolCall, threadId);
         } else if (DATABASE_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeDatabaseTool(toolCall, threadId);
+        } else if (WORK_STATE_TOOL_NAMES.includes(tc.function.name)) {
+          result = await executeWorkStateTool(toolCall, threadId);
         } else {
           result = {
             toolCallId: tc.id,
@@ -265,7 +324,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
       if (!content.trim() || isLoading) return;
 
       const trimmedContent = content.trim();
-      setIsLoading(true);
+      setActivityState('interpreting');
       setError(undefined);
 
       try {
@@ -317,7 +376,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           }
 
           setMessages((prev) => [...prev, assistantMessage]);
-          setIsLoading(false);
+          setActivityState('idle');
           return;
         }
 
@@ -379,6 +438,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         let response;
         const MAX_TOOL_ITERATIONS = 10; // Safety limit
         let iterations = 0;
+        let hasReceivedFirstChunk = false;
 
         while (iterations < MAX_TOOL_ITERATIONS) {
           iterations++;
@@ -387,6 +447,11 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           response = await client.chatStream(
             currentMessages,
             (chunk: string) => {
+              // Transition to drafting on first chunk
+              if (!hasReceivedFirstChunk) {
+                hasReceivedFirstChunk = true;
+                setActivityState('drafting');
+              }
               finalContent += chunk;
               setMessages((prev) =>
                 prev.map((msg) =>
@@ -409,6 +474,12 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
               toolCalls: response.toolCalls,
             });
 
+            // Set activity state based on first tool being called
+            const firstToolName = response.toolCalls[0]?.function?.name;
+            if (firstToolName) {
+              setActivityState(getActivityStateForTool(firstToolName));
+            }
+
             // Execute tool calls
             const toolResults = await executeToolCalls(
               response.toolCalls,
@@ -421,6 +492,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
             // Clear the streamed content for next iteration
             // (the AI will generate a new response after seeing tool results)
             finalContent = "";
+            hasReceivedFirstChunk = false; // Reset for next streaming round
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
@@ -482,7 +554,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
 
         setMessages((prev) => [...prev, errorAssistantMessage]);
       } finally {
-        setIsLoading(false);
+        setActivityState('idle');
       }
     },
     [
@@ -510,6 +582,7 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         messages,
         hasStarted,
         isLoading,
+        activityState,
         error,
         sendMessage,
         clearMessages,

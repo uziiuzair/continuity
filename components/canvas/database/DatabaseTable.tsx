@@ -67,8 +67,8 @@ export function DatabaseTable() {
     // Initialize with default values
     for (const column of data.columns) {
       switch (column.type) {
-        case "checkbox":
-          newRow[column.id] = false;
+        case "multiselect":
+          newRow[column.id] = [];
           break;
         default:
           newRow[column.id] = null;

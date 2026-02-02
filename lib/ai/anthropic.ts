@@ -134,8 +134,12 @@ export class AnthropicClient implements AIClient {
     }));
   }
 
-  async chat(messages: ChatMessage[], options?: ChatOptions): Promise<AIResponse> {
-    const { system, messages: conversationMessages } = this.convertMessages(messages);
+  async chat(
+    messages: ChatMessage[],
+    options?: ChatOptions,
+  ): Promise<AIResponse> {
+    const { system, messages: conversationMessages } =
+      this.convertMessages(messages);
     const tools = this.convertTools(options);
 
     const body: Record<string, unknown> = {
@@ -203,9 +207,10 @@ export class AnthropicClient implements AIClient {
   async chatStream(
     messages: ChatMessage[],
     onChunk: (chunk: string) => void,
-    options?: ChatOptions
+    options?: ChatOptions,
   ): Promise<AIResponse> {
-    const { system, messages: conversationMessages } = this.convertMessages(messages);
+    const { system, messages: conversationMessages } =
+      this.convertMessages(messages);
     const tools = this.convertTools(options);
 
     const body: Record<string, unknown> = {
@@ -342,8 +347,17 @@ export class AnthropicClient implements AIClient {
 }
 
 export const ANTHROPIC_MODELS = [
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
-  { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
-  { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku" },
-  { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
+  // Latest 4.5 models
+  { id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" },
+  { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
+  { id: "claude-opus-4-5-20251101", name: "Claude Opus 4.5" },
+
+  // Previous 4.x models (legacy)
+  { id: "claude-opus-4-1-20250805", name: "Claude Opus 4.1 (Legacy)" },
+  { id: "claude-opus-4-20250514", name: "Claude Opus 4 (Legacy)" },
+  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4 (Legacy)" },
+
+  // Older 3.x models (legacy)
+  { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet (Legacy)" },
+  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku (Legacy)" },
 ];

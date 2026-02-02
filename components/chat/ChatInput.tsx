@@ -3,18 +3,21 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import type { ActivityState } from "@/types";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
-  disabled?: boolean;
+  activityState?: ActivityState;
   placeholder?: string;
 }
 
 export default function ChatInput({
   onSend,
-  disabled = false,
+  activityState = 'idle',
   placeholder = "Send a message...",
 }: ChatInputProps) {
+  // Derive disabled from activity state
+  const disabled = activityState !== 'idle';
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

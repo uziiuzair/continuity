@@ -13,8 +13,10 @@ export type DatabaseColumnType =
   | "text"
   | "number"
   | "select"
-  | "checkbox"
-  | "date";
+  | "multiselect"
+  | "date"
+  | "time"
+  | "status";
 
 export type DatabaseColor =
   | "gray"
@@ -55,11 +57,9 @@ export interface DatabaseColumnDef {
 // ============================================
 
 export type CellValue =
-  | string // text
+  | string // text, select (option id), date (ISO string), time
   | number // number
-  | boolean // checkbox
-  | string // select (option id)
-  | string // date (ISO string)
+  | string[] // multiselect (array of option ids)
   | null;
 
 // ============================================

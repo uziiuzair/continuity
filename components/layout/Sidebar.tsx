@@ -37,8 +37,8 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps) {
   return (
     <motion.aside
       className={cn(
-        "h-screen flex flex-col border-r shrink-0 transition-all duration-300 bg-(--background-color) overflow-x-hidden z-50",
-        isExpanded ? "border-(--border-color)!" : "border-transparent",
+        "h-screen flex bg-[#f7f6f2] flex-col border-r shrink-0 transition-all duration-300 overflow-x-hidden z-50",
+        isExpanded ? "border-(--border-color)/50!" : "border-transparent",
       )}
       variants={sidebarVariants}
       initial={false}
@@ -289,7 +289,7 @@ function ThreadItem({
       onMouseLeave={() => setShowActions(false)}
       className={cn(
         "w-full flex items-center justify-between gap-2 pl-6 pr-2.5 py-1.5 rounded-md cursor-pointer transition-colors group",
-        isActive ? "bg-[#f5f4ed]" : "hover:bg-[#f5f4ed]/50"
+        isActive ? "bg-[#f5f4ed]" : "hover:bg-[#f5f4ed]/50",
       )}
     >
       <span className="text-sm text-(--text-primary) truncate">{title}</span>

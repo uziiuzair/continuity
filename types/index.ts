@@ -22,10 +22,27 @@ export interface Message {
   metadata?: MessageMetadata;
 }
 
+// Activity states for AI processing feedback
+export type ActivityState =
+  | 'idle'
+  | 'interpreting'
+  | 'extracting'
+  | 'updating'
+  | 'searching'
+  | 'saving'
+  | 'drafting'
+  | 'waiting';
+
+export interface ActivityStatus {
+  state: ActivityState;
+  text?: string; // Optional override text
+}
+
 export interface ChatState {
   messages: Message[];
   hasStarted: boolean;
   isLoading: boolean;
+  activityState: ActivityState;
   error?: string;
 }
 

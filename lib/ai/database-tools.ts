@@ -32,7 +32,7 @@ import {
 export const DATABASE_TOOLS: ToolDefinition[] = [
   {
     name: "create_database",
-    description: `Create a new database block in the canvas. Databases are spreadsheet-like tables with typed columns (text, number, select, checkbox, date). Use this when the user wants to track tasks, create a table, manage projects, etc.`,
+    description: `Create a new database block in the canvas. Databases are spreadsheet-like tables with typed columns (text, number, select, multiselect, date, time, status). Use this when the user wants to track tasks, create a table, manage projects, etc.`,
     parameters: {
       type: "object",
       properties: {
@@ -44,7 +44,7 @@ export const DATABASE_TOOLS: ToolDefinition[] = [
           type: "string",
           enum: ["default", "tasks"],
           description:
-            "Template to use: 'default' has Name and Status columns, 'tasks' has Task, Status, Priority, Due Date, and Done columns",
+            "Template to use: 'default' has Name column, 'tasks' has Task, Status, Priority, and Due Date columns",
         },
         columns: {
           type: "array",
@@ -59,12 +59,12 @@ export const DATABASE_TOOLS: ToolDefinition[] = [
               },
               type: {
                 type: "string",
-                enum: ["text", "number", "select", "checkbox", "date"],
+                enum: ["text", "number", "select", "multiselect", "date", "time", "status"],
                 description: "Column type",
               },
               options: {
                 type: "array",
-                description: "Options for select type columns",
+                description: "Options for select, multiselect, or status type columns",
                 items: {
                   type: "object",
                   properties: {
@@ -322,7 +322,7 @@ async function executeAddDatabaseRow(
     );
 
     if (column) {
-      if (column.type === "select" && typeof value === "string" && column.options) {
+      if ((column.type === "select" || column.type === "status") && typeof value === "string" && column.options) {
         // Find or create the option
         let option = column.options.find(
           (o) => o.value.toLowerCase() === value.toLowerCase()
@@ -333,8 +333,21 @@ async function executeAddDatabaseRow(
           column.options.push(option);
         }
         cellsById[column.id] = option.id;
-      } else if (column.type === "checkbox") {
-        cellsById[column.id] = Boolean(value);
+      } else if (column.type === "multiselect" && column.options) {
+        // Handle multiselect: value can be a string or array of strings
+        const values = Array.isArray(value) ? value : [String(value)];
+        const optionIds: string[] = [];
+        for (const v of values) {
+          let option = column.options.find(
+            (o) => o.value.toLowerCase() === v.toLowerCase()
+          );
+          if (!option) {
+            option = createSelectOption(v, "gray");
+            column.options.push(option);
+          }
+          optionIds.push(option.id);
+        }
+        cellsById[column.id] = optionIds;
       } else if (column.type === "number") {
         cellsById[column.id] = typeof value === "number" ? value : parseFloat(String(value));
       } else {
@@ -413,7 +426,7 @@ async function executeUpdateDatabaseRow(
     );
 
     if (column) {
-      if (column.type === "select" && typeof value === "string" && column.options) {
+      if ((column.type === "select" || column.type === "status") && typeof value === "string" && column.options) {
         let option = column.options.find(
           (o) => o.value.toLowerCase() === value.toLowerCase()
         );
@@ -422,8 +435,20 @@ async function executeUpdateDatabaseRow(
           column.options.push(option);
         }
         row.cells[column.id] = option.id;
-      } else if (column.type === "checkbox") {
-        row.cells[column.id] = Boolean(value);
+      } else if (column.type === "multiselect" && column.options) {
+        const values = Array.isArray(value) ? value : [String(value)];
+        const optionIds: string[] = [];
+        for (const v of values) {
+          let option = column.options.find(
+            (o) => o.value.toLowerCase() === v.toLowerCase()
+          );
+          if (!option) {
+            option = createSelectOption(v, "gray");
+            column.options.push(option);
+          }
+          optionIds.push(option.id);
+        }
+        row.cells[column.id] = optionIds;
       } else if (column.type === "number") {
         row.cells[column.id] = typeof value === "number" ? value : parseFloat(String(value));
       } else {
@@ -471,14 +496,16 @@ You have access to database tools for creating Notion-style databases in the can
 - **text**: Free-form text
 - **number**: Numeric values
 - **select**: Dropdown with colored options (automatically creates options when you add rows)
-- **checkbox**: Boolean (done/not done)
+- **multiselect**: Multiple selection with colored tags
 - **date**: Date values (use ISO format like "2024-01-15")
+- **time**: Time values (use format like "14:30")
+- **status**: Special select for task status with visual styling (To Do, In Progress, Done)
 
 ## Examples:
 
 To create a task tracker:
-- Use template: "tasks" for a pre-built structure
-- Or define custom columns like Status (select), Priority (select), Due Date (date), Done (checkbox)
+- Use template: "tasks" for a pre-built structure with Task, Status, Priority, Due Date
+- Or define custom columns like Status (status), Priority (select), Due Date (date)
 
 To add a task:
 - First use read_canvas to get the database block ID

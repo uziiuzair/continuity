@@ -69,7 +69,11 @@ export class OpenAIClient implements AIClient {
           tool_call_id: msg.toolCallId,
         };
       }
-      if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
+      if (
+        msg.role === "assistant" &&
+        msg.toolCalls &&
+        msg.toolCalls.length > 0
+      ) {
         return {
           role: "assistant" as const,
           content: msg.content || null,
@@ -102,7 +106,10 @@ export class OpenAIClient implements AIClient {
     }));
   }
 
-  async chat(messages: ChatMessage[], options?: ChatOptions): Promise<AIResponse> {
+  async chat(
+    messages: ChatMessage[],
+    options?: ChatOptions,
+  ): Promise<AIResponse> {
     const openAIMessages = this.convertMessages(messages);
     const tools = this.convertTools(options);
 
@@ -147,7 +154,7 @@ export class OpenAIClient implements AIClient {
           name: tc.function.name,
           arguments: tc.function.arguments,
         },
-      })
+      }),
     );
 
     return {
@@ -167,7 +174,7 @@ export class OpenAIClient implements AIClient {
   async chatStream(
     messages: ChatMessage[],
     onChunk: (chunk: string) => void,
-    options?: ChatOptions
+    options?: ChatOptions,
   ): Promise<AIResponse> {
     const openAIMessages = this.convertMessages(messages);
     const tools = this.convertTools(options);
@@ -207,7 +214,8 @@ export class OpenAIClient implements AIClient {
     const decoder = new TextDecoder();
     let accumulatedContent = "";
     let buffer = "";
-    let finishReason: "stop" | "tool_calls" | "length" | "content_filter" = "stop";
+    let finishReason: "stop" | "tool_calls" | "length" | "content_filter" =
+      "stop";
 
     // Track tool calls being built up across chunks
     const toolCallsInProgress: Map<
@@ -259,7 +267,8 @@ export class OpenAIClient implements AIClient {
               const existing = toolCallsInProgress.get(index)!;
               if (tc.id) existing.id = tc.id;
               if (tc.function?.name) existing.name = tc.function.name;
-              if (tc.function?.arguments) existing.arguments += tc.function.arguments;
+              if (tc.function?.arguments)
+                existing.arguments += tc.function.arguments;
             }
           }
         } catch {
@@ -291,8 +300,17 @@ export class OpenAIClient implements AIClient {
 }
 
 export const OPENAI_MODELS = [
+  { id: "gpt-5.2-pro", name: "GPT-5.2 Pro" },
+  { id: "gpt-5.2", name: "GPT-5.2" },
+  { id: "gpt-5.1", name: "GPT-5.1" },
+  { id: "gpt-5", name: "GPT-5" },
+  { id: "gpt-4.1", name: "GPT-4.1" },
+  { id: "gpt-4.1-mini", name: "GPT-4.1 Mini" },
+  { id: "gpt-4.1-nano", name: "GPT-4.1 Nano" },
+  { id: "gpt-o3", name: "GPT-o3" },
+  { id: "gpt-4", name: "GPT-4" },
+  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
   { id: "gpt-4o", name: "GPT-4o" },
   { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
   { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
 ];

@@ -13,3 +13,6 @@ export type { AICanvasAPI, InsertOptions, MoveOptions, CreateAICanvasAPI } from 
 
 // BlockNote adapter
 export { createBlockNoteAdapter } from "./blocknote-adapter";
+
+// Section helpers
+export * from "./sections";

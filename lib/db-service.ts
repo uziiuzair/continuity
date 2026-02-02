@@ -79,6 +79,14 @@ export async function initializeSchema(): Promise<void> {
     await db.execute("ALTER TABLE threads ADD COLUMN canvas_content TEXT");
   }
 
+  // Add work_state column to threads if not exists
+  const hasWorkStateColumn = threadColumns.some(
+    (col) => col.name === "work_state"
+  );
+  if (!hasWorkStateColumn) {
+    await db.execute("ALTER TABLE threads ADD COLUMN work_state TEXT");
+  }
+
   // Memories table for persistent key-value storage
   await db.execute(`
     CREATE TABLE IF NOT EXISTS memories (
@@ -121,6 +129,119 @@ export async function initializeSchema(): Promise<void> {
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope)
   `);
+
+  // Databases table - metadata for each database instance
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS databases (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES threads(id),
+      title TEXT NOT NULL DEFAULT 'Untitled',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Database columns table - column definitions (schema)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS database_columns (
+      id TEXT PRIMARY KEY,
+      database_id TEXT NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('text', 'number', 'select', 'multiselect', 'date', 'time', 'status')),
+      width INTEGER DEFAULT 150,
+      config TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Database rows table - actual data records
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS database_rows (
+      id TEXT PRIMARY KEY,
+      database_id TEXT NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+      "values" TEXT NOT NULL DEFAULT '{}',
+      row_type TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Create indexes for faster database queries
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_databases_thread_id ON databases(thread_id)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_database_columns_database_id ON database_columns(database_id)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_database_rows_database_id ON database_rows(database_id)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_database_rows_row_type ON database_rows(row_type)
+  `);
+
+  // Migration: Update database_columns type constraint for new column types
+  // SQLite doesn't support ALTER CONSTRAINT, so we need to recreate the table
+  try {
+    // Check if migration is needed by looking at the current constraint
+    const columnsSchema = await db.select<{ sql: string }[]>(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='database_columns'"
+    );
+
+    if (columnsSchema.length > 0 && columnsSchema[0].sql) {
+      const currentSql = columnsSchema[0].sql;
+      // Check if old constraint exists (has 'checkbox' but not 'multiselect')
+      if (currentSql.includes("'checkbox'") && !currentSql.includes("'multiselect'")) {
+        console.log("Migrating database_columns table to new column types...");
+
+        // Create new table with updated constraint
+        await db.execute(`
+          CREATE TABLE IF NOT EXISTS database_columns_new (
+            id TEXT PRIMARY KEY,
+            database_id TEXT NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('text', 'number', 'select', 'multiselect', 'date', 'time', 'status')),
+            width INTEGER DEFAULT 150,
+            config TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          )
+        `);
+
+        // Copy data, converting 'checkbox' to 'status'
+        await db.execute(`
+          INSERT INTO database_columns_new (id, database_id, name, type, width, config, sort_order, created_at, updated_at)
+          SELECT id, database_id, name,
+            CASE WHEN type = 'checkbox' THEN 'status' ELSE type END,
+            width, config, sort_order, created_at, updated_at
+          FROM database_columns
+        `);
+
+        // Drop old table
+        await db.execute("DROP TABLE database_columns");
+
+        // Rename new table
+        await db.execute("ALTER TABLE database_columns_new RENAME TO database_columns");
+
+        // Recreate index
+        await db.execute(`
+          CREATE INDEX IF NOT EXISTS idx_database_columns_database_id ON database_columns(database_id)
+        `);
+
+        console.log("Migration complete: database_columns table updated");
+      }
+    }
+  } catch (migrationError) {
+    console.error("Migration error (non-fatal):", migrationError);
+    // Migration failed but this shouldn't block app startup
+  }
 }
 
 export async function createItem(content: string): Promise<void> {

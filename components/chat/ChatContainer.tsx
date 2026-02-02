@@ -3,18 +3,25 @@
 import { motion, AnimatePresence } from "framer-motion";
 
 import { chatInputTransition } from "@/lib/animations";
+import ActivityIndicator from "./ActivityIndicator";
 import ChatInput from "./ChatInput";
 import ChatThread from "./ChatThread";
-import WelcomeView from "./WelcomeView";
+import { HomeBriefingView } from "@/components/briefing";
 import { useChat } from "@/providers/chat-provider";
+import { useThreads } from "@/providers/threads-provider";
 
 export default function ChatContainer() {
-  const { messages, hasStarted, isLoading, sendMessage } = useChat();
+  const { messages, hasStarted, activityState, sendMessage } = useChat();
+  const { setActiveThread } = useThreads();
+
+  const handleThreadClick = (threadId: string) => {
+    setActiveThread(threadId);
+  };
 
   return (
     <div className="h-full flex flex-col">
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col justify-center min-h-0 ">
         <AnimatePresence mode="wait">
           {hasStarted ? (
             <motion.div
@@ -25,24 +32,29 @@ export default function ChatContainer() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <ChatThread messages={messages} isLoading={isLoading} />
+              <ChatThread messages={messages} />
             </motion.div>
           ) : (
-            <motion.div
-              key="welcome"
-              className="flex-1 flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <WelcomeView onSuggestionClick={sendMessage} />
-            </motion.div>
+            <div className="w-7xl mx-auto flex items-center justify-center overflow-y-auto">
+              <motion.div
+                key="briefing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+                className="w-full"
+              >
+                <HomeBriefingView
+                  onThreadClick={handleThreadClick}
+                  onStartChat={sendMessage}
+                />
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Input area - animates from center to bottom */}
+      {/* Input area with activity indicator above */}
       <motion.div
         className="shrink-0 p-4 pb-6!"
         layout
@@ -52,9 +64,26 @@ export default function ChatContainer() {
         }}
         transition={chatInputTransition}
       >
+        {/* Activity indicator - fixed above input */}
+        <div className="flex w-full max-w-3xl mx-auto justify-start">
+          <AnimatePresence>
+            {activityState !== "idle" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="mb-2"
+              >
+                <ActivityIndicator state={activityState} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <ChatInput
           onSend={sendMessage}
-          disabled={isLoading}
+          activityState={activityState}
           placeholder={
             hasStarted ? "Continue the conversation..." : "What's on your mind?"
           }

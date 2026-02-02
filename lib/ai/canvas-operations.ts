@@ -101,16 +101,7 @@ function isValidCanvasBlock(block: unknown): block is AICanvasBlock {
   if (typeof b.type !== "string") return false;
 
   // Type must be valid
-  const validTypes = [
-    "paragraph",
-    "heading",
-    "bulletListItem",
-    "numberedListItem",
-    "checkListItem",
-    "codeBlock",
-    "table",
-    "image",
-  ];
+  const validTypes = ["paragraph", "heading", "listItem", "code", "database"];
   if (!validTypes.includes(b.type)) return false;
 
   // Must have content (string)
@@ -157,7 +148,7 @@ To add blocks to the canvas, use this format:
 [
   { "type": "heading", "content": "Section Title", "props": { "level": 2 } },
   { "type": "paragraph", "content": "Some paragraph text..." },
-  { "type": "checkListItem", "content": "A todo item", "props": { "checked": false } }
+  { "type": "listItem", "content": "A todo item", "props": { "listType": "todo", "checked": false } }
 ]
 \`\`\`
 
@@ -165,10 +156,9 @@ To add blocks to the canvas, use this format:
 
 - paragraph: Regular text. No special props.
 - heading: Section header. Props: { "level": 1 | 2 | 3 }
-- bulletListItem: Bullet point. No special props.
-- numberedListItem: Numbered list item. No special props.
-- checkListItem: Checkbox/todo item. Props: { "checked": boolean }
-- codeBlock: Code snippet. Props: { "language": string }
+- listItem: List item. Props: { "listType": "bullet" | "numbered" | "todo" }
+  - For todo items, also include: { "checked": boolean }
+- code: Code block. Props: { "language": string } (e.g., "javascript", "python", "sql")
 
 ## Examples
 

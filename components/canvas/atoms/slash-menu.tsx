@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { HeadingIcon } from "@/components/icons/heading-icon";
 import { ListIcon } from "@/components/icons/list-icon";
 import { ParagraphIcon } from "@/components/icons/paragraph-icon";
+import { TableIcon } from "@/components/icons/table-icon";
+import { CodeIcon } from "@/components/icons/code-icon";
 import { cn } from "@/lib/utils";
 
 export interface SlashMenuItem {
@@ -70,6 +72,21 @@ const MENU_ITEMS: SlashMenuItem[] = [
     description: "Track tasks with checkboxes",
     type: "listItem",
     props: { listType: "todo", checked: false },
+  },
+  {
+    id: "code",
+    icon: <CodeIcon className="size-4" />,
+    label: "Code",
+    description: "Code block with syntax highlighting",
+    type: "code",
+    props: { language: "plaintext" },
+  },
+  {
+    id: "database",
+    icon: <TableIcon className="size-4" />,
+    label: "Database",
+    description: "Table, Kanban, or Tasks view",
+    type: "database",
   },
 ];
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { messageVariants } from "@/lib/animations";
@@ -11,8 +12,44 @@ interface ChatMessageProps {
   message: Message;
 }
 
+// Threshold for showing "Read more" button
+const CHAR_THRESHOLD = 400;
+const LINE_THRESHOLD = 6;
+
+function isLongMessage(content: string): boolean {
+  const lineCount = content.split("\n").length;
+  return content.length > CHAR_THRESHOLD || lineCount > LINE_THRESHOLD;
+}
+
+function truncateContent(content: string): string {
+  const lines = content.split("\n");
+
+  // If too many lines, truncate by lines
+  if (lines.length > LINE_THRESHOLD) {
+    return lines.slice(0, LINE_THRESHOLD).join("\n") + "...";
+  }
+
+  // If too many characters, truncate by characters
+  if (content.length > CHAR_THRESHOLD) {
+    // Find a good break point (end of word or sentence)
+    let breakPoint = CHAR_THRESHOLD;
+    const nextSpace = content.indexOf(" ", CHAR_THRESHOLD);
+    if (nextSpace !== -1 && nextSpace < CHAR_THRESHOLD + 50) {
+      breakPoint = nextSpace;
+    }
+    return content.slice(0, breakPoint) + "...";
+  }
+
+  return content;
+}
+
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const isLong = isUser && isLongMessage(message.content);
+  const displayContent =
+    isLong && !isExpanded ? truncateContent(message.content) : message.content;
 
   return isUser ? (
     <motion.div
@@ -28,15 +65,36 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           "max-w-[80%] px-4 py-3 rounded-2xl rounded-br-md bg-[#f0eee6] select-text",
         )}
       >
-        <p className="text-base leading-relaxed whitespace-pre-wrap">
-          {message.content}
-        </p>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.p
+            key={isExpanded ? "expanded" : "collapsed"}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="text-base leading-relaxed whitespace-pre-wrap"
+          >
+            {displayContent}
+          </motion.p>
+        </AnimatePresence>
+
+        {isLong && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-2 text-sm text-stone-500 hover:text-stone-700 transition-colors"
+          >
+            {isExpanded ? "Show less" : "Read more"}
+          </button>
+        )}
       </div>
     </motion.div>
   ) : (
     <div className="w-full px-4 py-3 rounded-2xl rounded-bl-md select-text">
       <div
-        className="prose prose-sm max-w-none text-xl text-black"
+        className={cn(
+          "prose prose-sm max-w-none text-xl text-black",
+          "prose-hr:my-10",
+        )}
         style={{
           fontFamily: `var(--font-serif)`,
         }}
@@ -87,7 +145,9 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               </ol>
             ),
             li: ({ children }) => (
-              <li className="text-xl text-black">{children}</li>
+              <li className="text-xl text-black [&>p]:mt-0! [&>p]:mb-0! [&>p]:inline!">
+                {children}
+              </li>
             ),
             a: ({ href, children }) => (
               <a
@@ -111,7 +171,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               <h2 className="text-lg font-bold mt-3 mb-2">{children}</h2>
             ),
             h3: ({ children }) => (
-              <h3 className="text-base font-bold mt-2 mb-1">{children}</h3>
+              <h3 className="text-xl font-bold mt-2 mb-1">{children}</h3>
             ),
           }}
         >

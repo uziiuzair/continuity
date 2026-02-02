@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseProvider } from "./DatabaseContext";
+import { DatabaseProvider, useDatabase } from "./DatabaseContext";
 import { DatabaseToolbar } from "./DatabaseToolbar";
 import { DatabaseTable } from "./DatabaseTable";
 import { DatabaseBlockData } from "@/lib/canvas/database/types";
@@ -24,13 +24,19 @@ export default function DatabaseBlockWrapper({
 }
 
 function DatabaseBlockContent({ isEditable }: { isEditable: boolean }) {
+  const { addColumn } = useDatabase();
+
+  const handleAddColumn = (name: string, type: string) => {
+    addColumn({ name, type: type as "text" | "number" | "select" | "multiselect" | "date" | "time" | "status" });
+  };
+
   return (
     <div
       className="database-block"
       contentEditable={false}
       data-database-block
     >
-      {isEditable && <DatabaseToolbar />}
+      {isEditable && <DatabaseToolbar onAddColumn={handleAddColumn} />}
       <DatabaseTable />
     </div>
   );

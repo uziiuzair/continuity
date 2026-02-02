@@ -339,10 +339,6 @@ body {
   @apply opacity-60;
 }
 
-.database-toolbar-dropdown {
-  @apply absolute top-full right-0 mt-1.5 min-w-40 bg-white border border-black/8 rounded-[10px] z-100 p-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.12),0_0_0_1px_rgba(0,0,0,0.04)];
-}
-
 .database-toolbar-dropdown-item {
   @apply flex items-center gap-2.5 w-full py-2 px-3 border-none bg-transparent text-(--text-primary) text-[13px] text-left rounded-md cursor-pointer transition-all duration-100;
 }
@@ -486,7 +482,7 @@ body {
 }
 
 .editor-content {
-  @apply max-w-250 mx-auto min-h-full;
+  @apply max-w-190 mx-auto min-h-full;
 }
 
 /* Block container */
@@ -720,4 +716,513 @@ body {
 
 .slash-menu-item-description {
   @apply text-xs text-(--text-secondary);
+}
+
+/* ============================================
+   DATABASE BLOCK WRAPPER STYLES
+   ============================================ */
+
+.database-block-wrapper {
+  @apply w-full text-sm bg-white rounded-lg border border-black/6;
+}
+
+/* Constrain within editor content area */
+.editor-content .database-block-wrapper {
+  max-width: 100%;
+}
+
+.database-block-header {
+  @apply flex items-center justify-between px-4 py-2 border-b border-black/6 bg-black/2;
+}
+
+.database-block-content {
+  @apply min-h-60;
+}
+
+.database-block-loading,
+.database-block-error,
+.database-block-placeholder {
+  @apply flex items-center justify-center h-40 text-(--text-secondary) text-sm;
+}
+
+.database-block-error {
+  @apply text-(--color-radical-red-500);
+}
+
+/* ============================================
+   VIEW SWITCHER STYLES
+   ============================================ */
+
+.view-switcher {
+  @apply flex items-center gap-1 p-1 bg-black/4 rounded-lg;
+}
+
+.view-switcher-btn {
+  @apply flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-(--text-secondary) rounded-md cursor-pointer transition-all duration-150;
+}
+
+.view-switcher-btn:hover {
+  @apply text-(--text-primary) bg-white/50;
+}
+
+.view-switcher-btn.active {
+  @apply text-(--text-primary) bg-white shadow-sm;
+}
+
+.view-switcher-btn svg {
+  @apply opacity-60;
+}
+
+.view-switcher-btn.active svg {
+  @apply opacity-100;
+}
+
+/* ============================================
+   CUSTOM TABLE VIEW STYLES
+   ============================================ */
+
+.table-view {
+  @apply w-full;
+}
+
+.table-container {
+  @apply w-full overflow-x-auto;
+}
+
+.custom-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.custom-table th,
+.custom-table td {
+  @apply border border-black/6 text-left;
+}
+
+/* Column Header */
+.column-header {
+  @apply bg-black/3 font-medium text-(--text-secondary) min-w-36;
+}
+
+.column-header-content {
+  @apply flex items-center gap-2 px-3 py-2;
+}
+
+.column-type-icon {
+  @apply text-xs opacity-60;
+}
+
+.column-name {
+  @apply flex-1 cursor-text;
+}
+
+.column-name-input {
+  @apply flex-1 bg-transparent border-none outline-none text-sm;
+}
+
+.column-delete-btn {
+  @apply p-1 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer opacity-0 transition-opacity duration-150;
+}
+
+.column-header:hover .column-delete-btn {
+  @apply opacity-60;
+}
+
+.column-delete-btn:hover {
+  @apply opacity-100 text-(--color-radical-red-500);
+}
+
+/* Add Column Header */
+.add-column-header {
+  @apply bg-black/3 w-10 p-0;
+}
+
+.add-column-container {
+  @apply relative;
+}
+
+.add-column-btn {
+  @apply w-full h-full flex items-center justify-center p-2 bg-transparent border-none text-(--text-secondary) cursor-pointer transition-colors duration-150;
+}
+
+.add-column-btn:hover {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+.add-column-menu {
+  @apply absolute top-full right-0 mt-1 min-w-44 bg-white border border-black/8 rounded-lg shadow-lg z-50 p-1;
+}
+
+.add-column-option {
+  @apply flex items-center gap-2 w-full px-3 py-2 text-sm text-(--text-primary) bg-transparent border-none rounded cursor-pointer transition-colors duration-150 text-left;
+}
+
+.add-column-option:hover:not(.disabled) {
+  @apply bg-black/4;
+}
+
+.add-column-option.disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.add-column-option-icon {
+  @apply w-5 text-center opacity-60;
+}
+
+.add-column-disabled-hint {
+  @apply ml-auto text-xs text-(--text-secondary);
+}
+
+/* Table Cell */
+.table-cell {
+  @apply min-w-36 min-h-9 p-0 transition-colors duration-100;
+}
+
+.table-cell.active {
+  @apply bg-(--color-electric-violet-50) ring-2 ring-(--color-electric-violet) ring-inset;
+}
+
+.cell-display {
+  @apply block px-3 py-2 min-h-9 cursor-text;
+}
+
+.cell-input {
+  @apply w-full h-full px-3 py-2 border-none outline-none bg-transparent text-sm;
+}
+
+.date-input,
+.time-input {
+  @apply cursor-pointer;
+}
+
+/* Row Actions */
+.row-actions {
+  @apply w-10 p-0 bg-transparent;
+}
+
+.row-delete-btn {
+  @apply w-full h-full flex items-center justify-center p-2 bg-transparent border-none text-(--text-secondary) cursor-pointer opacity-0 transition-opacity duration-150;
+}
+
+tr:hover .row-delete-btn {
+  @apply opacity-40;
+}
+
+.row-delete-btn:hover {
+  @apply opacity-100 text-(--color-radical-red-500);
+}
+
+/* Add Row Button */
+.add-row-btn {
+  @apply flex items-center gap-2 px-3 py-2 text-sm text-(--text-secondary) bg-transparent border-none cursor-pointer transition-colors duration-150;
+}
+
+.add-row-btn:hover {
+  @apply text-(--text-primary) bg-black/3;
+}
+
+/* Select Cell */
+.select-cell,
+.multiselect-cell {
+  @apply relative min-h-9;
+}
+
+.select-tag {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer;
+}
+
+.select-placeholder {
+  @apply block px-3 py-2 text-(--text-secondary) opacity-50 cursor-pointer;
+}
+
+.multiselect-tags {
+  @apply flex flex-wrap gap-1 px-2 py-1.5 min-h-9 cursor-pointer;
+}
+
+.select-dropdown {
+  @apply absolute top-full left-0 mt-1 min-w-44 max-h-64 overflow-y-auto bg-white border border-black/8 rounded-lg shadow-lg z-50 p-1;
+}
+
+.select-option {
+  @apply flex items-center gap-2 w-full px-2 py-1.5 bg-transparent border-none rounded cursor-pointer transition-colors duration-100 text-left;
+}
+
+.select-option:hover {
+  @apply bg-black/4;
+}
+
+.select-option.selected {
+  @apply bg-black/6;
+}
+
+.select-option.clear {
+  @apply text-(--text-secondary) text-sm mb-1 border-b border-black/6 rounded-none;
+}
+
+.multiselect-checkbox {
+  @apply w-4 h-4 flex items-center justify-center text-xs border border-black/20 rounded;
+}
+
+.select-create {
+  @apply border-t border-black/6 mt-1 pt-1;
+}
+
+.select-create-input {
+  @apply w-full px-2 py-1.5 text-sm border border-black/10 rounded outline-none;
+}
+
+.select-create-input:focus {
+  @apply border-(--color-electric-violet-300);
+}
+
+/* ============================================
+   KANBAN VIEW STYLES
+   ============================================ */
+
+.kanban-board {
+  @apply flex gap-4 p-4 overflow-x-auto min-h-80;
+}
+
+.kanban-column {
+  @apply shrink-0 w-72 bg-black/3 rounded-lg;
+}
+
+.kanban-column.drag-over {
+  @apply bg-black/6;
+}
+
+.kanban-column-header {
+  @apply flex items-center gap-2 px-3 py-2.5 bg-black/3;
+}
+
+.kanban-column-header-dot {
+  @apply size-2.5 rounded-full;
+}
+
+.kanban-column-title {
+  @apply flex-1 text-sm font-medium text-(--text-primary);
+}
+
+.kanban-column-count {
+  @apply text-xs text-(--text-secondary);
+}
+
+.kanban-column-content {
+  @apply flex flex-col gap-2 p-3 min-h-40;
+}
+
+.kanban-card {
+  @apply relative bg-white rounded-lg p-3 shadow-sm border border-black/5 cursor-grab transition-all duration-150;
+}
+
+.kanban-card:hover {
+  @apply shadow-md border-black/10;
+}
+
+.kanban-card.dragging {
+  @apply opacity-50 cursor-grabbing shadow-lg;
+}
+
+.kanban-card-title {
+  @apply text-sm text-(--text-primary) line-clamp-2;
+}
+
+.kanban-card-delete {
+  @apply absolute top-2 right-2 p-1 text-(--text-secondary) bg-white rounded cursor-pointer opacity-0 transition-opacity duration-150;
+}
+
+.kanban-card:hover .kanban-card-delete {
+  @apply opacity-60;
+}
+
+.kanban-card-delete:hover {
+  @apply opacity-100 text-(--color-radical-red-500);
+}
+
+.kanban-add-card {
+  @apply flex items-center gap-2 w-full px-3 py-2 text-sm text-(--text-secondary) bg-transparent border-none rounded-md cursor-pointer transition-all duration-150;
+}
+
+.kanban-add-card:hover {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+/* Kanban empty state */
+.kanban-no-select {
+  @apply flex flex-col items-center justify-center h-60 text-center px-6;
+}
+
+.kanban-no-select-icon {
+  @apply text-(--text-secondary) opacity-30 mb-4;
+}
+
+.kanban-no-select-title {
+  @apply text-sm font-medium text-(--text-primary) mb-1;
+}
+
+.kanban-no-select-desc {
+  @apply text-xs text-(--text-secondary);
+}
+
+/* ============================================
+   TASKS VIEW STYLES
+   ============================================ */
+
+.tasks-view {
+  @apply p-4;
+}
+
+.tasks-add {
+  @apply flex gap-2 mb-4;
+}
+
+.tasks-add-input {
+  @apply flex-1 px-3 py-2 text-sm border border-black/10 rounded-lg outline-none transition-all duration-150;
+}
+
+.tasks-add-input:focus {
+  @apply border-(--color-electric-violet-300);
+}
+
+.tasks-add-btn {
+  @apply px-4 py-2 text-sm font-medium text-white bg-(--color-electric-violet) border-none rounded-lg cursor-pointer transition-all duration-150;
+}
+
+.tasks-add-btn:hover:not(:disabled) {
+  @apply bg-(--color-electric-violet-600);
+}
+
+.tasks-add-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.tasks-list {
+  @apply flex flex-col gap-1;
+}
+
+.tasks-empty {
+  @apply text-center py-8 text-sm text-(--text-secondary);
+}
+
+.task-row {
+  @apply flex items-center gap-3 py-2 px-3 rounded-md transition-all duration-150;
+}
+
+.task-row:hover {
+  @apply bg-black/3;
+}
+
+.task-row.completed {
+  @apply opacity-60;
+}
+
+.task-checkbox {
+  @apply flex items-center justify-center size-4.5 border-2 border-(--text-secondary) rounded cursor-pointer transition-all duration-150 flex-shrink-0;
+}
+
+.task-checkbox:hover {
+  @apply border-(--color-electric-violet);
+}
+
+.task-checkbox.checked {
+  @apply bg-(--color-electric-violet) border-(--color-electric-violet);
+}
+
+.task-title {
+  @apply flex-1 text-sm text-(--text-primary) cursor-text;
+}
+
+.task-row.completed .task-title {
+  @apply line-through;
+}
+
+.task-edit-input {
+  @apply flex-1 text-sm text-(--text-primary) border-none outline-none bg-transparent px-0;
+}
+
+.task-delete {
+  @apply p-1 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer opacity-0 transition-opacity duration-150;
+}
+
+.task-row:hover .task-delete {
+  @apply opacity-60;
+}
+
+.task-delete:hover {
+  @apply opacity-100 text-(--color-radical-red-500);
+}
+
+/* Completed section */
+.tasks-completed-section {
+  @apply mt-4 pt-4 border-t border-black/6;
+}
+
+.tasks-completed-header {
+  @apply flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-(--text-secondary) bg-transparent border-none cursor-pointer transition-all duration-150 rounded-md;
+}
+
+.tasks-completed-header:hover {
+  @apply bg-black/3 text-(--text-primary);
+}
+
+.tasks-completed-chevron {
+  @apply transition-transform duration-200;
+}
+
+.tasks-completed-chevron.expanded {
+  @apply rotate-90;
+}
+
+.tasks-completed-list {
+  @apply mt-2;
+}
+
+/* Tasks empty state */
+.tasks-no-text {
+  @apply flex flex-col items-center justify-center h-60 text-center px-6;
+}
+
+.tasks-no-text-icon {
+  @apply text-(--text-secondary) opacity-30 mb-4;
+}
+
+.tasks-no-text-title {
+  @apply text-sm font-medium text-(--text-primary) mb-1;
+}
+
+.tasks-no-text-desc {
+  @apply text-xs text-(--text-secondary);
+}
+
+/* ============================================
+   CODE BLOCK STYLES
+   ============================================ */
+
+.block-code {
+  @apply my-2 rounded-md overflow-hidden border border-black/50;
+}
+
+.code-header {
+  @apply px-3 py-1.5 bg-black/3 border-b w-full border-black/6 flex items-center justify-end;
+}
+
+.code-content {
+  @apply relative;
+}
+
+.code-textarea {
+  @apply w-full p-3 font-mono text-sm bg-(--bn-colors-editor-background) text-(--text-primary) resize-none outline-none min-h-25;
+  tab-size: 2;
+}
+
+.code-textarea::placeholder {
+  @apply text-(--text-secondary) opacity-50;
+}
+
+.code-highlighted {
+  @apply p-3 font-mono text-sm min-h-25 cursor-text m-0 overflow-x-auto;
+  tab-size: 2;
+}
+
+.code-highlighted.empty {
+  @apply text-(--text-secondary) opacity-50;
 }

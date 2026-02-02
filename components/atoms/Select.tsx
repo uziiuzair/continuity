@@ -49,15 +49,15 @@ export default function Select({
         <ListboxButton
           className={cn(
             "relative w-full px-3 py-2 text-sm text-left border border-(--border-color) rounded-md bg-(--background-color) text-(--text-primary)",
-            "focus:outline-none focus:ring-2 focus:ring-(--accent-color) focus:border-transparent",
+            "focus:outline-none focus:ring-2 focus:ring-(--accent) focus:border-transparent",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            "cursor-pointer"
+            "cursor-pointer outline-none",
           )}
         >
           <span
             className={cn(
               "block truncate",
-              !selectedOption && "text-(--text-secondary)/50"
+              !selectedOption && "text-(--text-secondary)/50",
             )}
           >
             {selectedOption?.name || placeholder}
@@ -71,9 +71,9 @@ export default function Select({
           anchor="bottom"
           transition
           className={cn(
-            "absolute z-50 mt-1 w-[var(--button-width)] overflow-auto rounded-md bg-(--background-color) py-1 text-sm shadow-lg ring-1 ring-black/5",
+            "absolute z-50 mt-1 w-(--button-width) h-50 overflow-auto rounded-md bg-(--background-color) py-1 text-sm shadow-lg ring-1 ring-black/5",
             "focus:outline-none",
-            "origin-top transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0"
+            "origin-top transition duration-100 ease-out data-closed:scale-95 data-closed:opacity-0",
           )}
         >
           {options.map((option) => (
@@ -89,7 +89,7 @@ export default function Select({
                     "relative cursor-pointer select-none py-2 pl-3 pr-9",
                     focus && "bg-[#f5f4ed]",
                     selected && "font-medium",
-                    disabled && "opacity-50 cursor-not-allowed"
+                    disabled && "opacity-50 cursor-not-allowed",
                   )}
                 >
                   <span className={cn("block truncate text-(--text-primary)")}>

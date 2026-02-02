@@ -1,112 +1,142 @@
 # Active Context
 
-**Last Updated**: 2026-02-02 (README.md Created)
-**Current Session Focus**: Created project README.md
+**Last Updated**: 2026-02-03 (Fixed Block Type Mismatch & Added Code Block Support)
+**Current Session Focus**: Canvas block type alignment and code block feature
 
 ## Current State Summary
 
-Created a professional README.md for the Ooozzy project that communicates the product philosophy, installation instructions, and contribution guidelines.
+Fixed the AI-canvas block type mismatch that caused "Unknown block type" errors. The AI was using BlockNote-style types (`bulletListItem`, `checkListItem`, etc.) but the custom editor only supports unified `listItem` type with `listType` prop. Also added code block support with syntax highlighting.
+
+Build passes, all changes verified.
 
 ---
 
 ## Recently Completed (This Session)
 
-### Created README.md
-- **File**: `/README.md`
-- **Purpose**: Professional project README for GitHub
-- **Content**:
-  - Hero section with badges (MIT license, platforms, tech stack)
-  - Product philosophy explanation (chat-first, structure emerges, local-first)
-  - Target audience description
-  - Feature table
-  - Installation instructions (download + from source)
-  - Getting started guide
-  - Development section with project structure
-  - Contributing guidelines
-  - About section with Ooozzy brand voice
+### Fixed Block Type Mismatch
 
-### Key Sections:
-- **What is Ooozzy?** - Explains the problem and philosophy
-- **Who is this for?** - Target users
-- **Key Features** - Table of capabilities
-- **Installation** - Download links (placeholder) + build from source
-- **Development** - Tech stack, project structure, commands
-- **Contributing** - How to help
+#### Problem Solved
+The AI created blocks with types like `checkListItem`, `bulletListItem`, `numberedListItem`, and `codeBlock`, but the CustomEditor only supports:
+- `paragraph`
+- `heading`
+- `listItem` (with `props.listType: "bullet" | "numbered" | "todo"`)
+- `database`
+
+This caused "Unknown block type: bulletListItem" errors in the canvas.
+
+#### Root Cause Mapping
+
+| Block Concept | AI Used (Wrong) | Editor Expects (Correct) | Required Props |
+|---------------|-----------------|--------------------------|----------------|
+| Bullet point | `bulletListItem` | `listItem` | `{ listType: "bullet" }` |
+| Numbered point | `numberedListItem` | `listItem` | `{ listType: "numbered" }` |
+| Checkbox/Todo | `checkListItem` | `listItem` | `{ listType: "todo", checked: boolean }` |
+| Code block | `codeBlock` | *(was not supported)* | — |
+
+#### Changes Made
+
+**1. Updated AI Tool Definitions**
+- **File**: `lib/ai/canvas-tools.ts`
+- Changed block type enum: `["paragraph", "heading", "listItem", "code"]`
+- Updated props description for correct listItem format
+- Fixed `formatCanvasForAI()` switch statement to handle `listItem` type
+- Updated system prompt block types documentation
+
+**2. Updated Block Validation**
+- **File**: `lib/ai/canvas-operations.ts`
+- Fixed `validTypes` array: `["paragraph", "heading", "listItem", "code", "database"]`
+- Updated `CANVAS_SYSTEM_PROMPT` with correct block type documentation
+- Fixed example in system prompt
+
+### Added Code Block Support
+
+#### New Feature
+Added syntax-highlighted code blocks to the canvas editor.
+
+**1. Created CodeBlock Component**
+- **File**: `components/canvas/blocks/CodeBlock.tsx`
+- Syntax highlighting via `prism-react-renderer`
+- Language selector dropdown (14 languages: JavaScript, TypeScript, Python, SQL, etc.)
+- Click-to-edit mode with Tab for indentation
+- Escape to exit edit mode
+
+**2. Added Type Helper**
+- **File**: `components/canvas/blocks/types.ts`
+- Added `createCodeBlock(language)` helper function
+
+**3. Added Block Router Case**
+- **File**: `components/canvas/Block.tsx`
+- Added import and switch case for `code` block type
+
+**4. Added Slash Menu Option**
+- **File**: `components/canvas/atoms/slash-menu.tsx`
+- Added "Code" option with CodeIcon
+- Users can now type `/code` to insert a code block
+
+**5. Created Code Icon**
+- **File**: `components/icons/code-icon.tsx`
+- Simple `<>` style code icon
+
+**6. Added Styles**
+- **File**: `app/globals.css`
+- Added `.block-code`, `.code-header`, `.code-language-select`, `.code-content`, `.code-textarea`, `.code-highlighted` styles
 
 ---
 
 ## Files Changed
 
-### Created
+### Modified (5 files)
+| File | Changes |
+|------|---------|
+| `lib/ai/canvas-tools.ts` | Fixed block type enum, props, formatCanvasForAI(), system prompt |
+| `lib/ai/canvas-operations.ts` | Fixed validTypes array and CANVAS_SYSTEM_PROMPT |
+| `components/canvas/Block.tsx` | Added CodeBlock import and switch case |
+| `components/canvas/blocks/types.ts` | Added createCodeBlock() helper |
+| `components/canvas/atoms/slash-menu.tsx` | Added Code menu item |
+| `app/globals.css` | Added code block styles |
+
+### Created (2 files)
 | File | Purpose |
 |------|---------|
-| `README.md` | Project README with philosophy, installation, and contribution guidelines |
+| `components/canvas/blocks/CodeBlock.tsx` | Code block component with syntax highlighting |
+| `components/icons/code-icon.tsx` | Code block icon for slash menu |
+
+### Dependencies
+- Installed `prism-react-renderer` for syntax highlighting
 
 ---
 
-## Component Status
+## Verification
 
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| SQLite DB | Data persistence | ✅ Working |
-| Threads | Conversation containers | ✅ Working |
-| Messages | Chat history | ✅ Working |
-| Chat Engine | Primary interface | ✅ Working |
-| AI Clients | OpenAI/Anthropic | ✅ Working |
-| Canvas | Per-thread editor | ✅ Fixed |
-| Custom Editor | Block-based editing | ✅ Persistence Fixed |
-| Database Block | Notion-style tables | ⏳ Phase 3 (to migrate) |
-| Web Tools | Search, URL read, time | ✅ Implemented |
-| Memory Tools | Remember/recall/forget | ✅ Implemented |
-| Artifact Tools | Tasks/notes/decisions | ✅ Implemented |
-| Settings | API keys | ✅ Working |
-| Spaces | Context containers | 📅 To Build |
+To verify these changes work:
 
----
+1. **List items**: Ask AI to "create a checklist with 3 items"
+   - Should create `listItem` blocks with `props: { listType: "todo", checked: false }`
+   - No more "Unknown block type" errors
 
-## Block Types Implemented
+2. **Bullet lists**: Ask AI to "add a bullet list"
+   - Should create `listItem` blocks with `props: { listType: "bullet" }`
 
-| Block Type | Features | Status |
-|------------|----------|--------|
-| `paragraph` | Basic text, Enter creates new paragraph | ✅ |
-| `heading` | Levels 1-3, Enter creates paragraph below | ✅ |
-| `listItem` (bullet) | Bullet marker "•", Enter creates same type | ✅ |
-| `listItem` (numbered) | Auto-numbering, Enter creates same type | ✅ |
-| `listItem` (todo) | Checkbox toggle, strikethrough when checked | ✅ |
+3. **Numbered lists**: Ask AI to "add a numbered list"
+   - Should create `listItem` blocks with `props: { listType: "numbered" }`
+
+4. **Code blocks**: Ask AI to "add a JavaScript code snippet" OR type `/code` in canvas
+   - Should render with syntax highlighting
+   - Click to edit, Escape to exit
+   - Language dropdown to change highlighting
 
 ---
 
 ## Next Steps
 
-### Immediate
-1. Add screenshot to README once UI is polished
-2. Create LICENSE file (MIT)
-3. Set up GitHub repository and push
-
-### Future Work
-- Phase 3: Database Block migration
-- Slash menu "/" keyboard shortcut
-- Markdown shortcuts
-- List indentation
-- Rich text formatting
-- Undo/redo
-- Pre-built binaries for distribution
+### Potential Future Enhancements
+- Add more languages to code block (Go, Ruby, PHP, etc.)
+- Copy-to-clipboard button for code blocks
+- Line numbers option for code blocks
+- Code block themes (dark mode support)
 
 ---
 
-## Architecture
+## Previous Session (Separated AI State from Canvas)
 
-```
-components/canvas/
-├── CustomEditor.tsx     # Main editor (manages block state, persistence fixed)
-├── Block.tsx           # Dispatches to block type components
-├── blocks/
-│   ├── types.ts        # EditorBlock, InlineContent, create* helpers
-│   ├── ParagraphBlock.tsx  # Paragraph editing
-│   ├── HeadingBlock.tsx    # H1/H2/H3 headings
-│   └── ListItemBlock.tsx   # Bullet/numbered/todo lists
-├── atoms/
-│   ├── add-dropdown.tsx    # Block type menu
-│   └── slash-menu.tsx      # Slash command menu
-└── index.tsx           # Exports CustomEditor as Editor
-```
+Separated the AI's internal state tracking from the user-facing canvas. The AI now uses `work_state` for internal tracking (invisible to user) while the canvas remains a clean slate for user-requested content only.

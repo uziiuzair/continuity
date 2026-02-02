@@ -5,6 +5,8 @@ import { BlockComponentProps } from "./blocks/types";
 import ParagraphBlock from "./blocks/ParagraphBlock";
 import HeadingBlock from "./blocks/HeadingBlock";
 import ListItemBlock from "./blocks/ListItemBlock";
+import DatabaseBlockWrapper from "./blocks/DatabaseBlockWrapper";
+import CodeBlock from "./blocks/CodeBlock";
 
 export interface BlockRef {
   focus: () => void;
@@ -38,6 +40,18 @@ const Block = forwardRef<BlockRef, BlockProps>(function Block(props, ref) {
           {...restProps}
         />
       );
+
+    case "database":
+      return (
+        <DatabaseBlockWrapper
+          ref={ref}
+          block={block}
+          {...restProps}
+        />
+      );
+
+    case "code":
+      return <CodeBlock ref={ref} block={block} {...restProps} />;
 
     default:
       return (

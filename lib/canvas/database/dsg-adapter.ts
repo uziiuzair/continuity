@@ -4,7 +4,7 @@
  * Converts between DatabaseBlockData and react-datasheet-grid's row format.
  */
 
-import { Column, keyColumn, textColumn, floatColumn, checkboxColumn, dateColumn } from "react-datasheet-grid";
+import { Column, keyColumn, textColumn, floatColumn, dateColumn } from "react-datasheet-grid";
 import {
   DatabaseBlockData,
   DatabaseColumnDef,
@@ -108,12 +108,25 @@ export function buildDSGColumn(
         ...baseConfig,
       };
 
-    case "checkbox":
+    case "status":
+    case "multiselect":
+      // Status and multiselect use select column for DSG (fallback behavior)
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createSelectColumn: createSelectCol } = require("./dsg-columns/select-column");
       return {
-        ...keyColumn(column.id, checkboxColumn),
+        ...keyColumn(column.id, createSelectCol({
+          columnId: column.id,
+          options: column.options || [],
+          onAddOption: (value: string) => context.addSelectOption(column.id, value),
+          getOptions: () => context.getSelectOptions(column.id),
+        })),
         ...baseConfig,
-        minWidth: 60,
-        maxWidth: 80,
+      };
+
+    case "time":
+      return {
+        ...keyColumn(column.id, textColumn),
+        ...baseConfig,
       };
 
     case "date":
@@ -176,8 +189,8 @@ export function createEmptyDSGRow(
 
   for (const column of columns) {
     switch (column.type) {
-      case "checkbox":
-        row[column.id] = false;
+      case "multiselect":
+        row[column.id] = [];
         break;
       case "number":
         row[column.id] = null;

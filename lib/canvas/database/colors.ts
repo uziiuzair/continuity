@@ -4,7 +4,7 @@
  * Maps database colors to CSS variables from globals.css
  */
 
-import { DatabaseColor } from "./types";
+import { DatabaseColor } from "@/types/database";
 
 // ============================================
 // COLOR DEFINITIONS
@@ -124,3 +124,10 @@ export const COLOR_NAMES: Record<DatabaseColor, string> = {
   purple: "Purple",
   pink: "Pink",
 };
+
+/**
+ * Get color classes for a database color
+ */
+export function getColorClasses(color: DatabaseColor): ColorConfig {
+  return DATABASE_COLORS[color] || DATABASE_COLORS.gray;
+}

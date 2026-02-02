@@ -84,7 +84,7 @@ export interface TableProps {
 export interface DatabaseColumn {
   id: string;
   name: string;
-  type: "text" | "number" | "date" | "select" | "checkbox" | "url";
+  type: "text" | "number" | "date" | "time" | "select" | "multiselect" | "status";
   options?: string[]; // For select type
 }
 

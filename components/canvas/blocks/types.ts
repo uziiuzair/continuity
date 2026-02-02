@@ -88,3 +88,26 @@ export function createListItem(
     props: { listType, checked: false },
   };
 }
+
+// Create a database block
+export function createDatabaseBlock(): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "database",
+    content: [],
+    props: {
+      databaseId: null, // Will be set when database is created/loaded
+      viewType: "table",
+    },
+  };
+}
+
+// Create a code block
+export function createCodeBlock(language: string = "plaintext"): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "code",
+    content: "",
+    props: { language },
+  };
+}

@@ -151,7 +151,7 @@ export const Canvas = () => {
         className={cn(
           "h-screen overflow-y-auto overflow-x-hidden shrink-0 flex flex-col relative",
           canvasIsOpen
-            ? "border-l border-(--border-color)"
+            ? "border-l border-(--border-color)/50!"
             : "border-transparent",
           !isResizing && "transition-[width] duration-200 ease-out",
         )}

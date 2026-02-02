@@ -9,6 +9,8 @@ import {
   createEmptyParagraph,
   createHeading,
   createListItem,
+  createDatabaseBlock,
+  createCodeBlock,
   generateBlockId,
 } from "./blocks/types";
 import { CanvasContent } from "@/types";
@@ -232,6 +234,12 @@ export default function CustomEditor() {
             newBlock.props = { ...newBlock.props, checked: props.checked };
           }
           break;
+        case "database":
+          newBlock = createDatabaseBlock();
+          break;
+        case "code":
+          newBlock = createCodeBlock((props?.language as string) || "plaintext");
+          break;
         case "paragraph":
         default:
           newBlock = createEmptyParagraph();
@@ -312,6 +320,12 @@ export default function CustomEditor() {
           if (item.props?.checked !== undefined) {
             newBlock.props = { ...newBlock.props, checked: item.props.checked };
           }
+          break;
+        case "database":
+          newBlock = createDatabaseBlock();
+          break;
+        case "code":
+          newBlock = createCodeBlock((item.props?.language as string) || "plaintext");
           break;
         case "paragraph":
         default:

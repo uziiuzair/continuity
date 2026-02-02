@@ -3,6 +3,10 @@
  *
  * Defines tools that AI can call to interact with the canvas.
  * These tools enable reading, creating, updating, and deleting canvas content.
+ *
+ * Note: The canvas is for user-requested content only. The AI should not
+ * auto-create structure or sections. Content is added only when explicitly
+ * requested by the user.
  */
 
 import { SimpleBlock } from "@/lib/canvas";
@@ -42,7 +46,7 @@ export const CANVAS_TOOLS: ToolDefinition[] = [
   {
     name: "add_to_canvas",
     description:
-      "Add new blocks to the canvas. Use this to create new content like paragraphs, headings, checklists, bullet points, etc.",
+      "Add new blocks to the canvas. Use this ONLY when the user explicitly asks for something to be added to the canvas. Do not use this to auto-create structure or sections.",
     parameters: {
       type: "object",
       properties: {
@@ -54,14 +58,7 @@ export const CANVAS_TOOLS: ToolDefinition[] = [
             properties: {
               type: {
                 type: "string",
-                enum: [
-                  "paragraph",
-                  "heading",
-                  "bulletListItem",
-                  "numberedListItem",
-                  "checkListItem",
-                  "codeBlock",
-                ],
+                enum: ["paragraph", "heading", "listItem", "code"],
                 description: "The type of block",
               },
               content: {
@@ -71,7 +68,7 @@ export const CANVAS_TOOLS: ToolDefinition[] = [
               props: {
                 type: "object",
                 description:
-                  "Optional properties. For heading: {level: 1|2|3}. For checkListItem: {checked: boolean}. For codeBlock: {language: string}",
+                  "Required for heading: {level: 1|2|3}. Required for listItem: {listType: 'bullet'|'numbered'|'todo'}. For todo: also include {checked: boolean}. For code: {language: string}",
               },
             },
             required: ["type", "content"],
@@ -99,7 +96,7 @@ export const CANVAS_TOOLS: ToolDefinition[] = [
         props: {
           type: "object",
           description:
-            "New properties to merge (optional). For checkListItem, use {checked: true} to mark complete.",
+            "New properties to merge (optional). For listItem with listType 'todo', use {checked: true} to mark complete.",
         },
       },
       required: ["blockId"],
@@ -399,16 +396,14 @@ function formatCanvasForAI(content: CanvasContent): string {
       case "heading":
         prefix = `[H${props.level || 1}] `;
         break;
-      case "bulletListItem":
-        prefix = "• ";
+      case "listItem": {
+        const listType = props.listType as string;
+        if (listType === "bullet") prefix = "• ";
+        else if (listType === "numbered") prefix = "1. ";
+        else if (listType === "todo") prefix = props.checked ? "[x] " : "[ ] ";
         break;
-      case "numberedListItem":
-        prefix = "1. ";
-        break;
-      case "checkListItem":
-        prefix = props.checked ? "[x] " : "[ ] ";
-        break;
-      case "codeBlock":
+      }
+      case "code":
         prefix = "```" + (props.language || "") + "\n";
         suffix = "\n```";
         break;
@@ -428,34 +423,45 @@ function formatCanvasForAI(content: CanvasContent): string {
 
 export const CANVAS_TOOLS_SYSTEM_PROMPT = `
 You have access to a canvas - a rich document that exists alongside this chat.
-The canvas is for persistent, structured content that the user can reference and edit.
+The canvas is for persistent content that the user explicitly requests.
 
-You have tools to interact with the canvas:
+## Canvas Tools:
 
-1. **read_canvas** - See what's currently in the canvas. ALWAYS use this before updating existing content.
+1. **read_canvas** - See what's currently in the canvas. Use this before updating existing content.
 2. **add_to_canvas** - Add new blocks (paragraphs, headings, checklists, bullet points, etc.)
 3. **update_block** - Update an existing block by ID. Use this to edit text or mark checkboxes as completed.
 4. **delete_block** - Remove a block by ID.
 
 ## When to use the canvas:
 
-- Creating todo lists, checklists, or task lists
-- Writing notes, summaries, or documentation
-- Any structured content the user wants to keep
+ONLY use canvas tools when the user explicitly asks for content to be added:
+- "Add this to my notes"
+- "Create a checklist for..."
+- "Put this summary in the canvas"
+- "Write this down for me"
+
+## When NOT to use the canvas:
+
+- Do NOT auto-create sections or structure
+- Do NOT render your internal state (tasks, decisions, blockers) to the canvas
+- Do NOT initialize workspaces or create predefined layouts
+- The canvas starts empty and stays empty unless the user asks for content
 
 ## Important guidelines:
 
 - ALWAYS call read_canvas first if you need to modify existing content
 - Use block IDs from read_canvas when calling update_block or delete_block
 - To mark a checkbox complete, use update_block with props: {checked: true}
-- The canvas persists - content stays until explicitly changed
+- The canvas persists - content stays until explicitly changed or deleted
+- Keep content simple - just what the user asked for, no extra structure
 
 ## Block types:
 
 - paragraph: Regular text
 - heading: Section header (props: {level: 1|2|3})
-- bulletListItem: Bullet point
-- numberedListItem: Numbered list item
-- checkListItem: Checkbox (props: {checked: boolean})
-- codeBlock: Code (props: {language: string})
+- listItem: List item. MUST include props.listType:
+  - Bullet point: {listType: "bullet"}
+  - Numbered item: {listType: "numbered"}
+  - Checkbox/todo: {listType: "todo", checked: boolean}
+- code: Code block (props: {language: string}, e.g., "javascript", "python", "sql")
 `.trim();
