@@ -1,112 +1,97 @@
 # Active Context
 
-**Last Updated**: 2026-02-02 (Custom Block Editor - Phase 1)
-**Current Session Focus**: Built custom block editor replacing BlockNote
+**Last Updated**: 2026-02-02 (Canvas Persistence Fix)
+**Current Session Focus**: Fixed canvas database persistence and AI tool integration
 
 ## Current State Summary
 
-Implemented Phase 1 of custom block editor. Created minimal paragraph-only editor from scratch with full control over persistence, styling, and behavior. BlockNote code kept for reference but no longer used.
+Fixed critical bug in CustomEditor.tsx where content wasn't persisting to database and AI tool updates weren't reflecting in the UI. The root cause was an initialization guard that blocked all content updates after first load.
 
 ---
 
 ## Recently Completed (This Session)
 
-### 1. Custom Block Editor Components
-- Created `components/canvas/Block.tsx` - Block type dispatcher
-- Created `components/canvas/blocks/ParagraphBlock.tsx` - contentEditable paragraph
-- Created `components/canvas/blocks/types.ts` - Block types and utilities
-- Created `components/canvas/CustomEditor.tsx` - Main editor component
+### 1. Fixed CustomEditor Initialization Logic
+- **File**: `components/canvas/CustomEditor.tsx`
+- **Problem**: Guard `if (initializedForThread.current === activeThreadId) return;` blocked ALL external content updates after initialization
+- **Solution**: Rewrote useEffect to use JSON comparison for detecting external vs local changes
 
-### 2. Canvas Provider Updates
-- Made `canvas-provider.tsx` editor-agnostic
-- Removed BlockNote-specific imports and types
-- Added generic `EditorAPI` interface for future AI integration
-- Renamed `registerEditor` → `registerEditorApi`, `unregisterEditor` → `unregisterEditorApi`
+### Key Changes Made:
+```typescript
+// OLD (broken):
+if (initializedForThread.current === activeThreadId) {
+  return;  // ← BLOCKED all external content updates
+}
 
-### 3. Editor Switch
-- Updated `components/canvas/index.tsx` to use CustomEditor
-- BlockNote editor kept as `BlockNoteEditor` export for reference
-- Old editor.tsx updated to avoid build errors (removed provider calls)
+// NEW (fixed):
+// Reset tracking when thread changes
+if (initializedForThread.current !== activeThreadId) {
+  initializedForThread.current = activeThreadId;
+  lastSentContent.current = null;
+}
+// Compare incoming content to detect external changes
+const incomingContentJson = content ? JSON.stringify(content) : null;
+if (incomingContentJson && incomingContentJson === lastSentContent.current) {
+  return;  // Only skip if it's an echo of what we sent
+}
+```
 
-### 4. Styling
-- Added custom editor CSS to `globals.css`
-- Paragraph blocks with placeholder text
-- Focus states and hover effects
+### 2. Updated Sync Effect
+- Added check to skip sync when blocks array is empty (initial render)
+- Prevents empty content from overwriting database on component mount
 
 ---
 
 ## Files Changed
 
-### Created
-| File | Purpose |
-|------|---------|
-| `components/canvas/Block.tsx` | Block type dispatcher component |
-| `components/canvas/blocks/ParagraphBlock.tsx` | contentEditable paragraph |
-| `components/canvas/blocks/types.ts` | EditorBlock, InlineContent types |
-| `components/canvas/blocks/index.ts` | Block exports |
-| `components/canvas/CustomEditor.tsx` | Main custom editor |
-
 ### Modified
 | File | Changes |
 |------|---------|
-| `providers/canvas-provider.tsx` | Editor-agnostic API, removed BlockNote types |
-| `components/canvas/index.tsx` | Switched to CustomEditor |
-| `components/canvas/editor.tsx` | Disabled provider registration (kept for reference) |
-| `app/globals.css` | Added custom editor styles |
+| `components/canvas/CustomEditor.tsx` | Fixed initialization useEffect to accept external content updates, added empty blocks check to sync effect |
 
 ---
 
-## Custom Editor Features (Phase 1)
+## How It Works Now
 
-### Working
-- Type in paragraphs
-- Enter creates new paragraph after current
-- Backspace on empty deletes paragraph (or clears if only one)
-- Arrow up/down navigation between blocks
-- Content syncs to canvas provider
-- Persists to SQLite via existing flow
-- Placeholder text on empty blocks
-
-### Block State Flow
+### Database Persistence Flow:
 ```
-User types → ParagraphBlock.handleInput → onUpdate(blockId, {content})
-→ CustomEditor.handleUpdate → setBlocks → useEffect → updateContent
-→ CanvasProvider.updateContent → debounced saveToDb
+User types → setBlocks() → sync effect → updateContent()
+→ debounced saveToDb() → Database ✓
 ```
 
----
-
-## Architecture
-
+### Loading Persisted Content:
 ```
-components/canvas/
-├── CustomEditor.tsx     # Main editor (manages block state)
-├── Block.tsx           # Dispatches to block type components
-├── blocks/
-│   ├── types.ts        # EditorBlock, InlineContent
-│   ├── index.ts        # Exports
-│   └── ParagraphBlock.tsx  # Paragraph editing
-├── editor.tsx          # OLD BlockNote (kept for reference)
-└── index.tsx           # Exports CustomEditor as Editor
+Thread selected → canvas-provider loads from DB
+→ setContent() → CustomEditor receives content
+→ detects external change (JSON mismatch) → setBlocks() ✓
+```
+
+### AI Tool Updates:
+```
+AI calls add_to_canvas → writes to DB → refreshContent()
+→ setContent() → CustomEditor receives content
+→ detects external change → setBlocks() ✓
 ```
 
 ---
 
 ## Testing Checklist
 
-### Basic Editing
-- [x] Type in editor, text appears
-- [x] Press Enter, new paragraph created
-- [x] Backspace on empty, paragraph deleted
-- [x] Arrow navigation between blocks
-- [x] Refresh page, content persists
-- [x] Switch threads, content preserved
+### Database Persistence
+- [ ] Type text in editor
+- [ ] Watch for "Unsaved" → save completes
+- [ ] Refresh page → content should persist
 
-### Edge Cases
-- [ ] IME input (composition events)
-- [ ] Copy/paste text
-- [ ] Multiple paragraphs with rich content
-- [ ] Very long paragraphs
+### AI Tool Integration
+- [ ] Ask AI: "Add a heading 'Test' to the canvas"
+- [ ] Canvas should auto-open and show the heading
+- [ ] Try: "Add a bullet list with 3 items"
+
+### No Regressions
+- [ ] Switching threads preserves content
+- [ ] Typing doesn't cause infinite loops
+- [ ] Slash menu still works
+- [ ] Block types persist correctly
 
 ---
 
@@ -119,8 +104,8 @@ components/canvas/
 | Messages | Chat history | ✅ Working |
 | Chat Engine | Primary interface | ✅ Working |
 | AI Clients | OpenAI/Anthropic | ✅ Working |
-| Canvas | Per-thread editor | ✅ Custom Editor |
-| Custom Editor | Block-based editing | ✅ Phase 1 Complete |
+| Canvas | Per-thread editor | ✅ Fixed |
+| Custom Editor | Block-based editing | ✅ Persistence Fixed |
 | Database Block | Notion-style tables | ⏳ Phase 3 (to migrate) |
 | Web Tools | Search, URL read, time | ✅ Implemented |
 | Memory Tools | Remember/recall/forget | ✅ Implemented |
@@ -130,40 +115,48 @@ components/canvas/
 
 ---
 
-## Next Steps
+## Block Types Implemented
 
-### Phase 2: More Block Types
-1. **HeadingBlock** - H1/H2/H3 with level prop
-2. **BulletListBlock** - Bullet list items
-3. **NumberedListBlock** - Numbered list items
-4. **CheckListBlock** - Checkbox items
-5. **Slash Menu** - "/" to insert block types
-
-### Phase 3: Database Block
-1. Move database components to work without BlockNote wrapper
-2. `DatabaseBlock.tsx` renders directly in custom editor
-3. Same context/table components, simpler integration
-
-### Phase 4: Advanced Features
-- Keyboard navigation enhancements
-- Drag to reorder blocks
-- Copy/paste blocks
-- Undo/redo
-- Rich text formatting (bold, italic, etc.)
+| Block Type | Features | Status |
+|------------|----------|--------|
+| `paragraph` | Basic text, Enter creates new paragraph | ✅ |
+| `heading` | Levels 1-3, Enter creates paragraph below | ✅ |
+| `listItem` (bullet) | Bullet marker "•", Enter creates same type | ✅ |
+| `listItem` (numbered) | Auto-numbering, Enter creates same type | ✅ |
+| `listItem` (todo) | Checkbox toggle, strikethrough when checked | ✅ |
 
 ---
 
-## Why Custom Editor
+## Next Steps
 
-**Problems with BlockNote:**
-- Persistence issues with custom blocks (programmatic updates don't trigger onChange)
-- Styling conflicts hard to override
-- Heavy dependency for features not fully used
-- Custom blocks don't integrate cleanly
+### Immediate Testing
+1. Verify database persistence works (type → refresh → content there)
+2. Test AI tool integration (add_to_canvas tool call)
+3. Test thread switching preserves content
 
-**Benefits of Custom:**
-- Full control over persistence flow
-- Simple, debuggable code
-- Easy styling
-- Lightweight - only what we need
-- Direct state → provider → SQLite path
+### Future Work
+- Phase 3: Database Block migration
+- Slash menu "/" keyboard shortcut
+- Markdown shortcuts
+- List indentation
+- Rich text formatting
+- Undo/redo
+
+---
+
+## Architecture
+
+```
+components/canvas/
+├── CustomEditor.tsx     # Main editor (manages block state, persistence fixed)
+├── Block.tsx           # Dispatches to block type components
+├── blocks/
+│   ├── types.ts        # EditorBlock, InlineContent, create* helpers
+│   ├── ParagraphBlock.tsx  # Paragraph editing
+│   ├── HeadingBlock.tsx    # H1/H2/H3 headings
+│   └── ListItemBlock.tsx   # Bullet/numbered/todo lists
+├── atoms/
+│   ├── add-dropdown.tsx    # Block type menu
+│   └── slash-menu.tsx      # Slash command menu
+└── index.tsx           # Exports CustomEditor as Editor
+```

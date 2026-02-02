@@ -1,18 +1,23 @@
 "use client";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { canvasVariants } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 import { useChat } from "@/providers/chat-provider";
 import { useThreads } from "@/providers/threads-provider";
-import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 
 // Custom block editor (replaces BlockNote)
 export const Editor = dynamic(() => import("./CustomEditor"), { ssr: false });
 
 // Keep BlockNote editor for reference/fallback
-export const BlockNoteEditor = dynamic(() => import("./editor"), { ssr: false });
+export const BlockNoteEditor = dynamic(() => import("./editor"), {
+  ssr: false,
+});
+
+// Default and constraints for canvas width (in pixels)
+const DEFAULT_WIDTH = 800;
+const MIN_WIDTH = 400;
+const MAX_WIDTH_PERCENT = 0.8; // 80% of viewport
 
 export const Canvas = () => {
   const { canvasIsOpen, setCanvasIsOpen } = useChat();
@@ -26,6 +31,58 @@ export const Canvas = () => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Resize state
+  const [canvasWidth, setCanvasWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
+
+  // Handle resize drag
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+      resizeStartX.current = e.clientX;
+      resizeStartWidth.current = canvasWidth;
+    },
+    [canvasWidth],
+  );
+
+  // Global mouse handlers for resize
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Calculate delta (negative because dragging left should increase width)
+      const delta = resizeStartX.current - e.clientX;
+      const newWidth = resizeStartWidth.current + delta;
+
+      // Clamp to min/max
+      const maxWidth = window.innerWidth * MAX_WIDTH_PERCENT;
+      const clampedWidth = Math.max(MIN_WIDTH, Math.min(maxWidth, newWidth));
+
+      setCanvasWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    // Add cursor style to body during resize
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing]);
 
   // Sync edited title when active thread changes
   useEffect(() => {
@@ -90,15 +147,36 @@ export const Canvas = () => {
         </svg>
       </button>
 
-      <motion.aside
+      <aside
         className={cn(
-          "h-screen border-l border-(--border-color)! overflow-y-auto overflow-x-hidden shrink-0 transition-all duration-300 flex flex-col",
-          canvasIsOpen ? "border-(--border-color)!" : "border-transparent",
+          "h-screen overflow-y-auto overflow-x-hidden shrink-0 flex flex-col relative",
+          canvasIsOpen
+            ? "border-l border-(--border-color)"
+            : "border-transparent",
+          !isResizing && "transition-[width] duration-200 ease-out",
         )}
-        variants={canvasVariants}
-        initial={false}
-        animate={canvasIsOpen ? "expanded" : "collapsed"}
+        style={{ width: canvasIsOpen ? canvasWidth : 0 }}
       >
+        {/* Resize handle - the entire left border */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-20 group",
+            "hover:bg-blue-500/30 active:bg-blue-500/50",
+            "transition-colors duration-150",
+            isResizing && "bg-blue-500/50",
+          )}
+        >
+          {/* Visual indicator line that appears on hover */}
+          <div
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 opacity-0",
+              "group-hover:opacity-100 transition-opacity duration-150",
+              isResizing && "opacity-100",
+            )}
+          />
+        </div>
+
         <header className="px-6 h-16 border-b border-(--border-color) flex items-center gap-3">
           {activeThread && (
             <>
@@ -177,10 +255,10 @@ export const Canvas = () => {
             </>
           )}
         </header>
-        <div className="w-[calc(65vw-48px)] p-6 flex-1 min-h-0">
+        <div className="w-full p-6 flex-1 min-h-0">
           <Editor />
         </div>
-      </motion.aside>
+      </aside>
     </>
   );
 };

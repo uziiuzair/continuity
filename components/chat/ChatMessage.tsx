@@ -52,7 +52,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               if (isInline) {
                 return (
                   <code
-                    className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-sm text-black"
+                    className="px-1.5 py-0.5 rounded text-sm text-black"
                     {...props}
                   >
                     {children}
@@ -62,7 +62,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               return (
                 <code
                   className={cn(
-                    "block bg-black/10 dark:bg-white/10 p-3 rounded-lg text-sm overflow-x-auto text-black",
+                    "block p-3 rounded-lg text-sm overflow-x-auto text-black",
                     className,
                   )}
                   {...props}
@@ -72,17 +72,17 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               );
             },
             pre: ({ children }) => (
-              <pre className="bg-black/10 dark:bg-white/10 p-3 rounded-lg overflow-x-auto my-2 text-black">
+              <pre className="bg-black/10! dark:bg-white/10 p-3 rounded-lg overflow-x-auto my-2 text-black">
                 {children}
               </pre>
             ),
             ul: ({ children }) => (
-              <ul className="list-disc list-inside my-2 space-y-1 text-black">
+              <ul className="list-disc list-inside my-2 pl-0 space-y-1 text-black">
                 {children}
               </ul>
             ),
             ol: ({ children }) => (
-              <ol className="list-decimal list-inside text-xl my-2 space-y-1 text-black">
+              <ol className="list-decimal list-inside text-xl pl-0 my-2 space-y-1 text-black">
                 {children}
               </ol>
             ),
@@ -100,7 +100,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               </a>
             ),
             blockquote: ({ children }) => (
-              <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 my-2 italic">
+              <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-2 my-2 italic">
                 {children}
               </blockquote>
             ),

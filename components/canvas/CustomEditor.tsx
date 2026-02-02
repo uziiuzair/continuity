@@ -7,10 +7,14 @@ import Block, { BlockRef } from "./Block";
 import {
   EditorBlock,
   createEmptyParagraph,
+  createHeading,
+  createListItem,
   generateBlockId,
 } from "./blocks/types";
 import { CanvasContent } from "@/types";
 import { cn } from "@/lib/utils";
+import { AddDropdown } from "@/components/canvas/atoms/add-dropdown";
+import { SlashMenu, SlashMenuItem } from "@/components/canvas/atoms/slash-menu";
 
 interface SelectionBox {
   startX: number;
@@ -46,10 +50,8 @@ export default function CustomEditor() {
 
   // Drag handle state
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
-  const [dragHandlePosition, setDragHandlePosition] = useState<{
-    top: number;
-    opacity: number;
-  } | null>(null);
+  const [controlsTop, setControlsTop] = useState<number>(0);
+  const [showControls, setShowControls] = useState(false);
 
   // Block dragging state
   const [isDraggingBlock, setIsDraggingBlock] = useState(false);
@@ -61,6 +63,12 @@ export default function CustomEditor() {
 
   // Track if mouse is over the drag handle
   const [isHoveringHandle, setIsHoveringHandle] = useState(false);
+
+  // Slash menu state
+  const [slashMenuVisible, setSlashMenuVisible] = useState(false);
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
+  const [slashMenuFilter, setSlashMenuFilter] = useState("");
+  const [slashMenuBlockId, setSlashMenuBlockId] = useState<string | null>(null);
 
   // Refs
   const editorRef = useRef<HTMLDivElement>(null);
@@ -76,16 +84,26 @@ export default function CustomEditor() {
   // Track the last content we sent to prevent loops
   const lastSentContent = useRef<string | null>(null);
 
-  // Initialize blocks when thread changes or content loads
+  // Initialize blocks when thread changes or external content updates
   useEffect(() => {
-    if (initializedForThread.current === activeThreadId) {
+    // Reset tracking when thread changes
+    if (initializedForThread.current !== activeThreadId) {
+      initializedForThread.current = activeThreadId;
+      lastSentContent.current = null;
+    }
+
+    if (!activeThreadId) return;
+
+    // Compare incoming content to detect external changes
+    const incomingContentJson = content ? JSON.stringify(content) : null;
+
+    // If incoming content matches what we last sent, it's an echo - skip
+    if (incomingContentJson && incomingContentJson === lastSentContent.current) {
       return;
     }
 
-    initializedForThread.current = activeThreadId;
-
+    // Load external content (from DB or AI tools)
     if (content && Array.isArray(content) && content.length > 0) {
-      // Content from database - convert to our block format
       const loadedBlocks = content.map((block: unknown) => {
         const b = block as EditorBlock;
         return {
@@ -98,17 +116,20 @@ export default function CustomEditor() {
       });
       setBlocks(loadedBlocks);
       lastSentContent.current = JSON.stringify(loadedBlocks);
-    } else if (activeThreadId) {
-      // New/empty canvas - start with one empty paragraph
+    } else if (!lastSentContent.current) {
+      // Only create empty paragraph if we haven't synced anything yet
       const emptyBlock = createEmptyParagraph();
       setBlocks([emptyBlock]);
-      lastSentContent.current = null;
+      // Let the sync effect handle updating lastSentContent
     }
   }, [activeThreadId, content]);
 
   // Sync blocks to provider (with duplicate prevention)
   useEffect(() => {
     if (!activeThreadId) return;
+
+    // Skip if blocks are empty (initial render)
+    if (blocks.length === 0) return;
 
     const blocksJson = JSON.stringify(blocks);
     if (blocksJson === lastSentContent.current) return;
@@ -158,13 +179,23 @@ export default function CustomEditor() {
     });
   }, []);
 
-  // Add block after handler
+  // Add block after handler - creates same type for list items, paragraph for others
   const handleAddAfter = useCallback((id: string) => {
-    const newBlock = createEmptyParagraph();
-
     setBlocks((prev) => {
       const index = prev.findIndex((b) => b.id === id);
       if (index === -1) return prev;
+
+      const currentBlock = prev[index];
+      let newBlock: EditorBlock;
+
+      // If current block is a list item, create another of the same type
+      if (currentBlock.type === "listItem") {
+        newBlock = createListItem(
+          currentBlock.props?.listType as "bullet" | "numbered" | "todo"
+        );
+      } else {
+        newBlock = createEmptyParagraph();
+      }
 
       const newBlocks = [
         ...prev.slice(0, index + 1),
@@ -172,15 +203,164 @@ export default function CustomEditor() {
         ...prev.slice(index + 1),
       ];
 
+      // Focus the new block after state update
+      setTimeout(() => {
+        const ref = blockRefs.current.get(newBlock.id);
+        ref?.focus();
+      }, 0);
+
       return newBlocks;
     });
-
-    // Focus the new block after state update
-    setTimeout(() => {
-      const ref = blockRefs.current.get(newBlock.id);
-      ref?.focus();
-    }, 0);
   }, []);
+
+  // Add a specific block type after the hovered block (from AddDropdown)
+  const handleAddBlock = useCallback(
+    (type: string, props?: Record<string, unknown>) => {
+      if (!hoveredBlockId) return;
+
+      let newBlock: EditorBlock;
+
+      switch (type) {
+        case "heading":
+          newBlock = createHeading((props?.level as 1 | 2 | 3) || 1);
+          break;
+        case "listItem":
+          newBlock = createListItem(
+            (props?.listType as "bullet" | "numbered" | "todo") || "bullet"
+          );
+          if (props?.checked !== undefined) {
+            newBlock.props = { ...newBlock.props, checked: props.checked };
+          }
+          break;
+        case "paragraph":
+        default:
+          newBlock = createEmptyParagraph();
+          break;
+      }
+
+      setBlocks((prev) => {
+        const index = prev.findIndex((b) => b.id === hoveredBlockId);
+        if (index === -1) return [...prev, newBlock];
+
+        return [
+          ...prev.slice(0, index + 1),
+          newBlock,
+          ...prev.slice(index + 1),
+        ];
+      });
+
+      // Focus new block
+      setTimeout(() => {
+        const ref = blockRefs.current.get(newBlock.id);
+        ref?.focus();
+      }, 0);
+    },
+    [hoveredBlockId]
+  );
+
+  // Slash menu handlers
+  const handleSlashMenu = useCallback(
+    (blockId: string, position: { x: number; y: number }) => {
+      setSlashMenuBlockId(blockId);
+      setSlashMenuPosition(position);
+      setSlashMenuFilter("");
+      setSlashMenuVisible(true);
+    },
+    []
+  );
+
+  const handleSlashMenuClose = useCallback(() => {
+    setSlashMenuVisible(false);
+    setSlashMenuBlockId(null);
+    setSlashMenuFilter("");
+  }, []);
+
+  const handleSlashMenuFilterChange = useCallback((filter: string) => {
+    setSlashMenuFilter(filter);
+  }, []);
+
+  const handleSlashMenuSelect = useCallback(
+    (item: SlashMenuItem) => {
+      if (!slashMenuBlockId) return;
+
+      // Find the block and get its current content
+      const blockIndex = blocks.findIndex((b) => b.id === slashMenuBlockId);
+      if (blockIndex === -1) return;
+
+      const currentBlock = blocks[blockIndex];
+      const currentText =
+        typeof currentBlock.content === "string"
+          ? currentBlock.content
+          : Array.isArray(currentBlock.content)
+            ? currentBlock.content.map((c) => c.text).join("")
+            : "";
+
+      // Remove the slash command text (everything from "/" onwards)
+      const slashIndex = currentText.lastIndexOf("/");
+      const newContent = slashIndex >= 0 ? currentText.slice(0, slashIndex) : currentText;
+
+      // Create the new block with the selected type
+      let newBlock: EditorBlock;
+      switch (item.type) {
+        case "heading":
+          newBlock = createHeading((item.props?.level as 1 | 2 | 3) || 1);
+          break;
+        case "listItem":
+          newBlock = createListItem(
+            (item.props?.listType as "bullet" | "numbered" | "todo") || "bullet"
+          );
+          if (item.props?.checked !== undefined) {
+            newBlock.props = { ...newBlock.props, checked: item.props.checked };
+          }
+          break;
+        case "paragraph":
+        default:
+          newBlock = createEmptyParagraph();
+          break;
+      }
+
+      // If there was content before the slash, keep the old block and add new one after
+      if (newContent.trim()) {
+        // Update the old block's content
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.id === slashMenuBlockId
+              ? { ...b, content: [{ type: "text" as const, text: newContent }] }
+              : b
+          )
+        );
+        // Insert new block after
+        setBlocks((prev) => {
+          const index = prev.findIndex((b) => b.id === slashMenuBlockId);
+          return [
+            ...prev.slice(0, index + 1),
+            newBlock,
+            ...prev.slice(index + 1),
+          ];
+        });
+      } else {
+        // Replace the current block entirely
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.id === slashMenuBlockId
+              ? { ...newBlock, id: b.id }
+              : b
+          )
+        );
+      }
+
+      // Close the menu
+      handleSlashMenuClose();
+
+      // Focus the new/updated block
+      setTimeout(() => {
+        const focusId = newContent.trim() ? newBlock.id : slashMenuBlockId;
+        const ref = blockRefs.current.get(focusId);
+        ref?.focus();
+      }, 0);
+    },
+    [slashMenuBlockId, blocks, handleSlashMenuClose]
+  );
 
   // Focus previous block
   const handleFocusPrevious = useCallback(
@@ -429,35 +609,46 @@ export default function CustomEditor() {
   // Update drag handle position when hovered block changes
   useEffect(() => {
     if (!hoveredBlockId || !editorContentRef.current) {
-      setDragHandlePosition(null);
+      setShowControls(false);
       return;
     }
 
     const wrapperEl = blockWrapperRefs.current.get(hoveredBlockId);
-    if (!wrapperEl) return;
+    if (!wrapperEl) {
+      setShowControls(false);
+      return;
+    }
 
     const contentRect = editorContentRef.current.getBoundingClientRect();
     const wrapperRect = wrapperEl.getBoundingClientRect();
 
     // Position relative to the editor content container, centered vertically
     const handleHeight = 24; // matches CSS
-    const top = wrapperRect.top - contentRect.top + (wrapperRect.height / 2) - (handleHeight / 2);
+    const top =
+      wrapperRect.top -
+      contentRect.top +
+      wrapperRect.height / 2 -
+      handleHeight / 2;
 
-    setDragHandlePosition({ top, opacity: 1 });
+    setControlsTop(top);
+    setShowControls(true);
   }, [hoveredBlockId]);
 
   // Handle block hover
-  const handleBlockMouseEnter = useCallback((blockId: string) => {
-    // Clear any pending hide timeout
-    if (hideHandleTimeoutRef.current) {
-      clearTimeout(hideHandleTimeoutRef.current);
-      hideHandleTimeoutRef.current = null;
-    }
+  const handleBlockMouseEnter = useCallback(
+    (blockId: string) => {
+      // Clear any pending hide timeout
+      if (hideHandleTimeoutRef.current) {
+        clearTimeout(hideHandleTimeoutRef.current);
+        hideHandleTimeoutRef.current = null;
+      }
 
-    if (!isSelecting) {
-      setHoveredBlockId(blockId);
-    }
-  }, [isSelecting]);
+      if (!isSelecting) {
+        setHoveredBlockId(blockId);
+      }
+    },
+    [isSelecting],
+  );
 
   const handleBlockMouseLeave = useCallback(() => {
     // Don't hide if we're hovering over the drag handle
@@ -500,7 +691,7 @@ export default function CustomEditor() {
         blockWrapperRefs.current.delete(id);
       }
     },
-    []
+    [],
   );
 
   // Calculate drop target index based on mouse Y position
@@ -531,7 +722,7 @@ export default function CustomEditor() {
 
       return dropIndex;
     },
-    [blocks]
+    [blocks],
   );
 
   // Handle drag handle mouse down - start block drag
@@ -556,7 +747,7 @@ export default function CustomEditor() {
       setDropTargetIndex(blocks.findIndex((b) => b.id === hoveredBlockId));
       setDragOffset(0);
     },
-    [hoveredBlockId, blocks]
+    [hoveredBlockId, blocks],
   );
 
   // Handle block drag move
@@ -608,7 +799,13 @@ export default function CustomEditor() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDraggingBlock, draggedBlockId, dropTargetIndex, blocks, calculateDropIndex]);
+  }, [
+    isDraggingBlock,
+    draggedBlockId,
+    dropTargetIndex,
+    blocks,
+    calculateDropIndex,
+  ]);
 
   // Calculate transform for each block during drag
   const getBlockTransform = useCallback(
@@ -645,7 +842,7 @@ export default function CustomEditor() {
 
       return "";
     },
-    [isDraggingBlock, draggedBlockId, dragOffset, dropTargetIndex, blocks]
+    [isDraggingBlock, draggedBlockId, dragOffset, dropTargetIndex, blocks],
   );
 
   // Get the Y position for the drop indicator
@@ -671,6 +868,35 @@ export default function CustomEditor() {
     const wrapperRect = wrapperEl.getBoundingClientRect();
     return wrapperRect.top - contentRect.top;
   }, [dropTargetIndex, blocks]);
+
+  // Calculate list position for numbered lists
+  const getListPosition = useCallback(
+    (blockId: string, index: number): number => {
+      const block = blocks[index];
+      if (
+        block?.type !== "listItem" ||
+        block?.props?.listType !== "numbered"
+      ) {
+        return 1;
+      }
+
+      // Count consecutive numbered list items before this one
+      let position = 1;
+      for (let i = index - 1; i >= 0; i--) {
+        const prevBlock = blocks[i];
+        if (
+          prevBlock.type === "listItem" &&
+          prevBlock.props?.listType === "numbered"
+        ) {
+          position++;
+        } else {
+          break;
+        }
+      }
+      return position;
+    },
+    [blocks]
+  );
 
   // Status indicator
   const statusText = useMemo(() => {
@@ -712,41 +938,42 @@ export default function CustomEditor() {
         className="editor-content relative"
         onMouseLeave={handleBlockMouseLeave}
       >
-        {/* Floating drag handle */}
+        {/* Floating block controls (add + drag) */}
         <div
           className={cn(
-            "drag-handle",
-            (hoveredBlockId || isDraggingBlock || isHoveringHandle) ? "visible" : "",
-            isDraggingBlock ? "dragging" : ""
+            "block-controls",
+            showControls || isDraggingBlock || isHoveringHandle
+              ? "visible"
+              : "",
           )}
           style={{
-            top: dragHandlePosition?.top ?? 0,
+            top: controlsTop,
           }}
-          onMouseDown={handleDragHandleMouseDown}
           onMouseEnter={handleDragHandleMouseEnter}
           onMouseLeave={handleDragHandleMouseLeave}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="currentColor"
+          {/* Add block button */}
+          <AddDropdown onAddBlock={handleAddBlock} />
+
+          {/* Drag handle */}
+          <div
+            className={cn("drag-handle", isDraggingBlock ? "dragging" : "")}
+            onMouseDown={handleDragHandleMouseDown}
           >
-            <circle cx="8" cy="5" r="1.5" />
-            <circle cx="16" cy="5" r="1.5" />
-            <circle cx="8" cy="12" r="1.5" />
-            <circle cx="16" cy="12" r="1.5" />
-            <circle cx="8" cy="19" r="1.5" />
-            <circle cx="16" cy="19" r="1.5" />
-          </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="8" cy="5" r="1.5" />
+              <circle cx="16" cy="5" r="1.5" />
+              <circle cx="8" cy="12" r="1.5" />
+              <circle cx="16" cy="12" r="1.5" />
+              <circle cx="8" cy="19" r="1.5" />
+              <circle cx="16" cy="19" r="1.5" />
+            </svg>
+          </div>
         </div>
 
         {/* Drop indicator line */}
         {isDraggingBlock && dropIndicatorTop !== null && (
-          <div
-            className="drop-indicator"
-            style={{ top: dropIndicatorTop }}
-          />
+          <div className="drop-indicator" style={{ top: dropIndicatorTop }} />
         )}
 
         {blocks.map((block, index) => (
@@ -774,6 +1001,10 @@ export default function CustomEditor() {
               onFocusPrevious={handleFocusPrevious}
               onFocusNext={handleFocusNext}
               isFocused={focusedBlockId === block.id}
+              listPosition={getListPosition(block.id, index)}
+              onSlashMenu={handleSlashMenu}
+              onSlashMenuClose={handleSlashMenuClose}
+              onSlashMenuFilter={handleSlashMenuFilterChange}
             />
           </div>
         ))}
@@ -790,6 +1021,16 @@ export default function CustomEditor() {
             width: selectionBoxStyle.width,
             height: selectionBoxStyle.height,
           }}
+        />
+      )}
+
+      {/* Slash command menu */}
+      {slashMenuVisible && (
+        <SlashMenu
+          position={slashMenuPosition}
+          filter={slashMenuFilter}
+          onSelect={handleSlashMenuSelect}
+          onClose={handleSlashMenuClose}
         />
       )}
     </div>

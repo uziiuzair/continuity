@@ -1,8 +1,10 @@
 "use client";
 
 import { forwardRef } from "react";
-import { BlockComponentProps, EditorBlock } from "./blocks/types";
+import { BlockComponentProps } from "./blocks/types";
 import ParagraphBlock from "./blocks/ParagraphBlock";
+import HeadingBlock from "./blocks/HeadingBlock";
+import ListItemBlock from "./blocks/ListItemBlock";
 
 export interface BlockRef {
   focus: () => void;
@@ -11,28 +13,31 @@ export interface BlockRef {
 
 interface BlockProps extends BlockComponentProps {
   ref?: React.Ref<BlockRef>;
+  listPosition?: number;
 }
 
 /**
  * Block component - dispatches to the appropriate block type component
  */
-const Block = forwardRef<BlockRef, BlockComponentProps>(function Block(
-  props,
-  ref
-) {
-  const { block } = props;
+const Block = forwardRef<BlockRef, BlockProps>(function Block(props, ref) {
+  const { block, listPosition, ...restProps } = props;
 
   switch (block.type) {
     case "paragraph":
-      return <ParagraphBlock ref={ref} {...props} />;
+      return <ParagraphBlock ref={ref} block={block} {...restProps} />;
 
-    // Future block types will be added here:
-    // case "heading":
-    //   return <HeadingBlock ref={ref} {...props} />;
-    // case "bulletListItem":
-    //   return <BulletListBlock ref={ref} {...props} />;
-    // case "database":
-    //   return <DatabaseBlock ref={ref} {...props} />;
+    case "heading":
+      return <HeadingBlock ref={ref} block={block} {...restProps} />;
+
+    case "listItem":
+      return (
+        <ListItemBlock
+          ref={ref}
+          block={block}
+          listPosition={listPosition}
+          {...restProps}
+        />
+      );
 
     default:
       return (

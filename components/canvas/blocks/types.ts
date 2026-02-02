@@ -34,6 +34,9 @@ export interface BlockComponentProps {
   onFocusPrevious?: (id: string) => void;
   onFocusNext?: (id: string) => void;
   isFocused?: boolean;
+  onSlashMenu?: (blockId: string, position: { x: number; y: number }) => void;
+  onSlashMenuClose?: () => void;
+  onSlashMenuFilter?: (filter: string) => void;
 }
 
 // Helper to generate unique IDs
@@ -61,5 +64,27 @@ export function createEmptyParagraph(): EditorBlock {
     type: "paragraph",
     content: [],
     props: {},
+  };
+}
+
+// Create a heading block
+export function createHeading(level: 1 | 2 | 3 = 1): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "heading",
+    content: [],
+    props: { level },
+  };
+}
+
+// Create a list item block
+export function createListItem(
+  listType: "bullet" | "numbered" | "todo" = "bullet"
+): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "listItem",
+    content: [],
+    props: { listType, checked: false },
   };
 }
