@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { sidebarVariants, sidebarContentVariants } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -17,12 +18,23 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [threadsExpanded, setThreadsExpanded] = useState(true);
 
+  const router = useRouter();
+  const pathname = usePathname();
+
   const { threads, activeThreadId, setActiveThread, archiveThread } =
     useThreads();
   const { clearMessages } = useChat();
 
   const handleNewChat = () => {
     clearMessages();
+    // Navigate to home if on another page
+    if (pathname !== "/") {
+      router.push("/");
+    }
+  };
+
+  const handleJournalClick = () => {
+    router.push("/journal");
   };
 
   const handleThreadClick = (threadId: string) => {
@@ -115,6 +127,29 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps) {
               onClick={handleNewChat}
             />
 
+            {/* Daily Journals */}
+            <NavItem
+              icon={
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  className="size-4.5"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                    d="M21 8H3m13-6v3M8 2v3m-.2 17h8.4c1.68 0 2.52 0 3.162-.327a3 3 0 0 0 1.311-1.311C21 19.72 21 18.88 21 17.2V8.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C18.72 4 17.88 4 16.2 4H7.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C3 6.28 3 7.12 3 8.8v8.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C5.28 22 6.12 22 7.8 22m4.197-9.67c-.8-.908-2.133-1.153-3.135-.32-1.002.832-1.143 2.223-.356 3.208.571.715 2.153 2.122 2.977 2.839.179.155.268.233.373.264.09.027.192.027.283 0 .104-.03.194-.109.372-.264.824-.717 2.407-2.124 2.978-2.84a2.256 2.256 0 0 0-.356-3.208c-1.02-.823-2.336-.587-3.136.322Z"
+                  />
+                </svg>
+              }
+              label="Daily Journals"
+              active={pathname === "/journal"}
+              onClick={handleJournalClick}
+            />
+
             {/* Projects (placeholder) */}
             <NavItem
               icon={
@@ -182,7 +217,10 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps) {
                             key={thread.id}
                             title={thread.title}
                             isActive={thread.id === activeThreadId}
-                            onClick={() => handleThreadClick(thread.id)}
+                            onClick={() => {
+                              router.push("/");
+                              handleThreadClick(thread.id);
+                            }}
                             onArchive={(e) => handleArchiveThread(e, thread.id)}
                           />
                         ))}
@@ -288,33 +326,39 @@ function ThreadItem({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
       className={cn(
-        "w-full flex items-center justify-between gap-2 pl-6 pr-2.5 py-1.5 rounded-md cursor-pointer transition-colors group",
+        "w-full flex h-8 items-center justify-between gap-2 pl-6 pr-2.5 py-1.5 rounded-md cursor-pointer transition-colors group",
         isActive ? "bg-[#f5f4ed]" : "hover:bg-[#f5f4ed]/50",
       )}
     >
       <span className="text-sm text-(--text-primary) truncate">{title}</span>
-      {showActions && (
-        <button
-          onClick={onArchive}
-          className="p-1 rounded hover:bg-black/10 transition-colors"
-          title="Archive thread"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="size-3.5 text-(--text-secondary)"
+      <AnimatePresence>
+        {showActions && (
+          <motion.button
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.15 }}
+            onClick={onArchive}
+            className="p-1 rounded hover:bg-(--accent)/10 text-(--text-secondary) hover:text-(--accent) transition-colors"
+            title="Archive thread"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"
-            />
-          </svg>
-        </button>
-      )}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              strokeWidth={1.5}
+              viewBox="0 0 24 24"
+              className="size-4.5"
+            >
+              <path
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m20 9-1.995 11.346A2 2 0 0 1 16.035 22h-8.07a2 2 0 0 1-1.97-1.654L4 9m17-3h-5.625M3 6h5.625m0 0V4a2 2 0 0 1 2-2h2.75a2 2 0 0 1 2 2v2m-6.75 0h6.75"
+              />
+            </svg>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

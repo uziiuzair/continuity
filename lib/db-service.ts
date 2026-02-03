@@ -186,6 +186,45 @@ export async function initializeSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_database_rows_row_type ON database_rows(row_type)
   `);
 
+  // Journal entries table - daily notes
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS journal_entries (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      content TEXT,
+      word_count INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Index for date lookups
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_journal_date ON journal_entries(date)
+  `);
+
+  // Journal links table - bi-directional linking
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS journal_links (
+      id TEXT PRIMARY KEY,
+      journal_date TEXT NOT NULL,
+      linked_type TEXT NOT NULL,
+      linked_id TEXT NOT NULL,
+      link_type TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (journal_date) REFERENCES journal_entries(date)
+    )
+  `);
+
+  // Indexes for journal links
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_journal_links_date ON journal_links(journal_date)
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_journal_links_entity ON journal_links(linked_type, linked_id)
+  `);
+
   // Migration: Update database_columns type constraint for new column types
   // SQLite doesn't support ALTER CONSTRAINT, so we need to recreate the table
   try {

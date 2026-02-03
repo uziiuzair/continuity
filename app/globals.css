@@ -1116,7 +1116,7 @@ tr:hover .row-delete-btn {
 }
 
 .task-checkbox {
-  @apply flex items-center justify-center size-4.5 border-2 border-(--text-secondary) rounded cursor-pointer transition-all duration-150 flex-shrink-0;
+  @apply flex items-center justify-center size-4.5 border-2 border-(--text-secondary) rounded cursor-pointer transition-all duration-150 shrink-0;
 }
 
 .task-checkbox:hover {

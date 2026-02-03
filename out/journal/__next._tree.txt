@@ -1,0 +1,5 @@
+:HL["/_next/static/chunks/f1f11fa2947e8371.css","style"]
+:HL["/_next/static/chunks/ec97b17468c3ec61.css","style"]
+:HL["/_next/static/chunks/573707a98c043e7d.css","style"]
+:HC["/",""]
+0:{"buildId":"ULOiU9dK3quD1C66Aewfu","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"journal","paramType":null,"paramKey":"journal","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}

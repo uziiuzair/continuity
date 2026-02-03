@@ -1,142 +1,130 @@
 # Active Context
 
-**Last Updated**: 2026-02-03 (Fixed Block Type Mismatch & Added Code Block Support)
-**Current Session Focus**: Canvas block type alignment and code block feature
+**Last Updated**: 2026-02-04 (Implemented Daily Journal Feature)
+**Current Session Focus**: Daily Journal feature with weekly calendar, streak tracking, and bi-directional links
 
 ## Current State Summary
 
-Fixed the AI-canvas block type mismatch that caused "Unknown block type" errors. The AI was using BlockNote-style types (`bulletListItem`, `checkListItem`, etc.) but the custom editor only supports unified `listItem` type with `listType` prop. Also added code block support with syntax highlighting.
-
-Build passes, all changes verified.
+Implemented the complete Daily Journal feature per the implementation plan. The journal allows daily note-taking with a weekly calendar navigation strip, streak tracking for consecutive weekdays, and bi-directional linking support. Build passes, all changes verified.
 
 ---
 
 ## Recently Completed (This Session)
 
-### Fixed Block Type Mismatch
+### Daily Journal Feature - Full Implementation
 
-#### Problem Solved
-The AI created blocks with types like `checkListItem`, `bulletListItem`, `numberedListItem`, and `codeBlock`, but the CustomEditor only supports:
-- `paragraph`
-- `heading`
-- `listItem` (with `props.listType: "bullet" | "numbered" | "todo"`)
-- `database`
+#### Feature Overview
+- **Weekly Calendar Strip**: Navigate days with visual indicators for entries
+- **Streak System**: Consecutive weekday streak tracking (Mon-Fri only)
+- **Editor**: Full block-based editor with lazy entry creation
+- **Bi-directional Links**: Infrastructure for linking journal entries to threads/artifacts
 
-This caused "Unknown block type: bulletListItem" errors in the canvas.
+#### Database Schema (Phase 1)
 
-#### Root Cause Mapping
+**New Tables Added to `lib/db-service.ts`:**
 
-| Block Concept | AI Used (Wrong) | Editor Expects (Correct) | Required Props |
-|---------------|-----------------|--------------------------|----------------|
-| Bullet point | `bulletListItem` | `listItem` | `{ listType: "bullet" }` |
-| Numbered point | `numberedListItem` | `listItem` | `{ listType: "numbered" }` |
-| Checkbox/Todo | `checkListItem` | `listItem` | `{ listType: "todo", checked: boolean }` |
-| Code block | `codeBlock` | *(was not supported)* | — |
+```sql
+-- Journal entries table
+CREATE TABLE journal_entries (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL UNIQUE,  -- YYYY-MM-DD format
+  content TEXT,               -- JSON blocks
+  word_count INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 
-#### Changes Made
+-- Journal links table (bi-directional linking)
+CREATE TABLE journal_links (
+  id TEXT PRIMARY KEY,
+  journal_date TEXT NOT NULL,
+  linked_type TEXT NOT NULL,  -- 'thread', 'artifact', 'space'
+  linked_id TEXT NOT NULL,
+  link_type TEXT NOT NULL,    -- 'auto', 'manual'
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (journal_date) REFERENCES journal_entries(date)
+);
+```
 
-**1. Updated AI Tool Definitions**
-- **File**: `lib/ai/canvas-tools.ts`
-- Changed block type enum: `["paragraph", "heading", "listItem", "code"]`
-- Updated props description for correct listItem format
-- Fixed `formatCanvasForAI()` switch statement to handle `listItem` type
-- Updated system prompt block types documentation
+#### Files Created
 
-**2. Updated Block Validation**
-- **File**: `lib/ai/canvas-operations.ts`
-- Fixed `validTypes` array: `["paragraph", "heading", "listItem", "code", "database"]`
-- Updated `CANVAS_SYSTEM_PROMPT` with correct block type documentation
-- Fixed example in system prompt
-
-### Added Code Block Support
-
-#### New Feature
-Added syntax-highlighted code blocks to the canvas editor.
-
-**1. Created CodeBlock Component**
-- **File**: `components/canvas/blocks/CodeBlock.tsx`
-- Syntax highlighting via `prism-react-renderer`
-- Language selector dropdown (14 languages: JavaScript, TypeScript, Python, SQL, etc.)
-- Click-to-edit mode with Tab for indentation
-- Escape to exit edit mode
-
-**2. Added Type Helper**
-- **File**: `components/canvas/blocks/types.ts`
-- Added `createCodeBlock(language)` helper function
-
-**3. Added Block Router Case**
-- **File**: `components/canvas/Block.tsx`
-- Added import and switch case for `code` block type
-
-**4. Added Slash Menu Option**
-- **File**: `components/canvas/atoms/slash-menu.tsx`
-- Added "Code" option with CodeIcon
-- Users can now type `/code` to insert a code block
-
-**5. Created Code Icon**
-- **File**: `components/icons/code-icon.tsx`
-- Simple `<>` style code icon
-
-**6. Added Styles**
-- **File**: `app/globals.css`
-- Added `.block-code`, `.code-header`, `.code-language-select`, `.code-content`, `.code-textarea`, `.code-highlighted` styles
-
----
-
-## Files Changed
-
-### Modified (5 files)
-| File | Changes |
-|------|---------|
-| `lib/ai/canvas-tools.ts` | Fixed block type enum, props, formatCanvasForAI(), system prompt |
-| `lib/ai/canvas-operations.ts` | Fixed validTypes array and CANVAS_SYSTEM_PROMPT |
-| `components/canvas/Block.tsx` | Added CodeBlock import and switch case |
-| `components/canvas/blocks/types.ts` | Added createCodeBlock() helper |
-| `components/canvas/atoms/slash-menu.tsx` | Added Code menu item |
-| `app/globals.css` | Added code block styles |
-
-### Created (2 files)
 | File | Purpose |
 |------|---------|
-| `components/canvas/blocks/CodeBlock.tsx` | Code block component with syntax highlighting |
-| `components/icons/code-icon.tsx` | Code block icon for slash menu |
+| `types/journal.ts` | TypeScript interfaces and date utility helpers |
+| `lib/db/journal.ts` | CRUD operations for journal entries |
+| `lib/db/journal-links.ts` | Link management for bi-directional linking |
+| `providers/journal-provider.tsx` | Context provider with state and actions |
+| `app/journal/page.tsx` | Next.js page route for /journal |
+| `components/journal/JournalPage.tsx` | Main container component |
+| `components/journal/WeeklyCalendar.tsx` | Calendar strip with day navigation |
+| `components/journal/StreakBadge.tsx` | 🔥 streak counter display |
+| `components/journal/JournalEditor.tsx` | Block editor for journal entries |
+| `components/journal/BiDirectionalLinks.tsx` | Links section (expandable) |
+| `components/journal/index.ts` | Barrel exports |
 
-### Dependencies
-- Installed `prism-react-renderer` for syntax highlighting
+#### Files Modified
+
+| File | Changes |
+|------|---------|
+| `lib/db-service.ts` | Added journal_entries and journal_links tables |
+| `components/layout/Sidebar.tsx` | Wired Daily Journals nav item to /journal route |
 
 ---
 
-## Verification
+## Key Implementation Details
 
-To verify these changes work:
+### Streak Calculation Logic
+- Only counts **consecutive weekdays** (Mon-Fri)
+- Weekends don't break the streak
+- Calculated backwards from today
+- Refreshes automatically when entry is saved
 
-1. **List items**: Ask AI to "create a checklist with 3 items"
-   - Should create `listItem` blocks with `props: { listType: "todo", checked: false }`
-   - No more "Unknown block type" errors
+### Lazy Entry Creation
+- Entry created only on first keystroke
+- Empty days have no database row
+- Prevents cluttering database with empty entries
 
-2. **Bullet lists**: Ask AI to "add a bullet list"
-   - Should create `listItem` blocks with `props: { listType: "bullet" }`
+### Week Calendar Navigation
+- Click any day to view/edit
+- Left/right arrows to navigate weeks
+- "Today" button appears when today is not in view
+- Dots show days with content
 
-3. **Numbered lists**: Ask AI to "add a numbered list"
-   - Should create `listItem` blocks with `props: { listType: "numbered" }`
+### Swipe Gestures
+- Swipe left/right on editor area to change days
+- Horizontal swipe > 50px triggers navigation
 
-4. **Code blocks**: Ask AI to "add a JavaScript code snippet" OR type `/code` in canvas
-   - Should render with syntax highlighting
-   - Click to edit, Escape to exit
-   - Language dropdown to change highlighting
+---
+
+## Verification Plan
+
+1. **Database**: Tables created on app startup, entries persist across restarts
+2. **Navigation**: Click days, use arrows, swipe gestures, Today button
+3. **Editor**: Type to create entry, auto-save with debounce
+4. **Streak**: Test weekday logic, verify weekends don't break streak
+5. **Links**: Infrastructure ready, UI shows linked items
 
 ---
 
 ## Next Steps
 
 ### Potential Future Enhancements
-- Add more languages to code block (Go, Ruby, PHP, etc.)
-- Copy-to-clipboard button for code blocks
-- Line numbers option for code blocks
-- Code block themes (dark mode support)
+- Template suggestions for empty days
+- `/template` slash command
+- @-mention detection for auto-linking
+- Backlinks display in thread view
+- Keyboard shortcuts (arrow keys for day navigation)
 
 ---
 
-## Previous Session (Separated AI State from Canvas)
+## Previous Sessions
 
-Separated the AI's internal state tracking from the user-facing canvas. The AI now uses `work_state` for internal tracking (invisible to user) while the canvas remains a clean slate for user-requested content only.
+### Session: Block Type Mismatch Fix & Code Block Support
+- Fixed AI-canvas block type mismatch (bulletListItem → listItem)
+- Added code block support with syntax highlighting
+- Updated AI tool definitions for correct block types
+
+### Session: AI State Separation
+- Separated AI internal state from user-facing canvas
+- AI uses work_state for tracking (invisible to user)
+- Canvas remains clean for user content only
