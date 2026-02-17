@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 type Views = "chat" | "threads" | "projects" | "settings";
 
@@ -19,6 +19,25 @@ export const ViewProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [view, setView] = useState<Views>("chat");
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(true);
+
+  // Auto-collapse sidebar on small screens
+  useEffect(() => {
+    const COLLAPSE_BREAKPOINT = 900;
+
+    const handleResize = () => {
+      if (window.innerWidth < COLLAPSE_BREAKPOINT) {
+        setSidebarExpanded(false);
+      } else {
+        setSidebarExpanded(true);
+      }
+    };
+
+    // Check on mount
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <ViewContext.Provider

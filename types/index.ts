@@ -6,11 +6,28 @@ export interface Thread {
   archivedAt?: Date;
 }
 
+export interface ToolCallDisplay {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: string;
+  success?: boolean;
+  startedAt: number;
+  completedAt?: number;
+  /** Pre-fetched HTML for MCP App UI (not persisted to DB) */
+  mcpAppHtml?: string;
+  /** The ui:// resource URI for this MCP App */
+  mcpAppResourceUri?: string;
+  /** Server ID for proxying tool/resource calls back to the MCP server */
+  mcpAppServerId?: string;
+}
+
 export interface MessageMetadata {
   model?: string;
   provider?: AIProvider;
   tokens?: { prompt: number; completion: number };
   error?: string;
+  toolCalls?: ToolCallDisplay[];
 }
 
 export interface Message {
@@ -31,7 +48,9 @@ export type ActivityState =
   | 'searching'
   | 'saving'
   | 'drafting'
-  | 'waiting';
+  | 'waiting'
+  | 'researching'
+  | 'mcp-calling';
 
 export interface ActivityStatus {
   state: ActivityState;

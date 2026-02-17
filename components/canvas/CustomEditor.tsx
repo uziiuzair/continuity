@@ -11,12 +11,22 @@ import {
   createListItem,
   createDatabaseBlock,
   createCodeBlock,
+  createChartBlock,
+  createColumnsBlock,
   generateBlockId,
 } from "./blocks/types";
 import { CanvasContent } from "@/types";
 import { cn } from "@/lib/utils";
 import { AddDropdown } from "@/components/canvas/atoms/add-dropdown";
 import { SlashMenu, SlashMenuItem } from "@/components/canvas/atoms/slash-menu";
+import { FormattingToolbar, SelectionInfo } from "@/components/canvas/atoms/formatting-toolbar";
+import { AIPromptInput } from "@/components/canvas/atoms/ai-prompt-input";
+import { useTextSelection } from "@/components/canvas/hooks/useTextSelection";
+import {
+  applyStyleToSelection,
+  StyleKey,
+} from "@/components/canvas/utils/formatting-utils";
+import { getAIClient } from "@/lib/ai";
 
 interface SelectionBox {
   startX: number;
@@ -33,9 +43,23 @@ interface SelectionBox {
  * - Simple styling
  * - Easy debugging
  */
-export default function CustomEditor() {
-  const { content, isLoading, isSaving, isDirty, updateContent } = useCanvas();
+interface CustomEditorProps {
+  threadId?: string;
+  canvasOverride?: {
+    content: unknown[] | null;
+    isLoading: boolean;
+    isSaving: boolean;
+    isDirty: boolean;
+    updateContent: (content: unknown[]) => void;
+  };
+}
+
+export default function CustomEditor({ threadId: propThreadId, canvasOverride }: CustomEditorProps = {}) {
+  const globalCanvas = useCanvas();
   const { activeThreadId } = useThreads();
+
+  const effectiveThreadId = propThreadId ?? activeThreadId;
+  const { content, isLoading, isSaving, isDirty, updateContent } = canvasOverride ?? globalCanvas;
 
   // Local block state
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
@@ -72,6 +96,12 @@ export default function CustomEditor() {
   const [slashMenuFilter, setSlashMenuFilter] = useState("");
   const [slashMenuBlockId, setSlashMenuBlockId] = useState<string | null>(null);
 
+  // AI prompt state
+  const [aiPromptVisible, setAiPromptVisible] = useState(false);
+  const [aiPromptBlockId, setAiPromptBlockId] = useState<string | null>(null);
+  const [aiPromptAnchorRect, setAiPromptAnchorRect] = useState<DOMRect | null>(null);
+  const [aiIsLoading, setAiIsLoading] = useState(false);
+
   // Refs
   const editorRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
@@ -86,15 +116,157 @@ export default function CustomEditor() {
   // Track the last content we sent to prevent loops
   const lastSentContent = useRef<string | null>(null);
 
+  // Text selection tracking for formatting toolbar
+  const textSelectionState = useTextSelection({
+    editorRef: editorRef as React.RefObject<HTMLElement>,
+    throttleMs: 50,
+  });
+
+  // Handle style toggle from formatting toolbar (DOM-based approach)
+  const handleStyleToggle = useCallback(
+    (style: StyleKey, selectionInfo?: SelectionInfo) => {
+      // Get the block ID from selectionInfo or current selection state
+      const blockId = selectionInfo?.blockId || textSelectionState.selection?.blockId;
+      if (!blockId) return;
+
+      // Find the block element in the DOM
+      const blockElement = document.querySelector(
+        `[data-block-id="${blockId}"]`
+      ) as HTMLElement | null;
+
+      if (!blockElement) return;
+
+      // Apply the style directly to the DOM and get the new content
+      const newContent = applyStyleToSelection(blockElement, style);
+
+      if (newContent) {
+        // Update the block state with the extracted content
+        setBlocks((prev) =>
+          prev.map((block) =>
+            block.id === blockId ? { ...block, content: newContent } : block
+          )
+        );
+      }
+    },
+    [textSelectionState]
+  );
+
+  // Handle formatting toolbar close
+  const handleFormattingToolbarClose = useCallback(() => {
+    // Clear selection when toolbar closes
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
+  // Handle AI edit button click (from toolbar or slash menu)
+  const handleAIEdit = useCallback(
+    (selectionInfo: SelectionInfo) => {
+      // Use the selection rect or compute from block element
+      const blockEl = document.querySelector(
+        `[data-block-id="${selectionInfo.blockId}"]`,
+      ) as HTMLElement | null;
+
+      let rect: DOMRect;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        rect = sel.getRangeAt(0).getBoundingClientRect();
+      } else if (blockEl) {
+        rect = blockEl.getBoundingClientRect();
+      } else {
+        return;
+      }
+
+      setAiPromptBlockId(selectionInfo.blockId);
+      setAiPromptAnchorRect(rect);
+      setAiPromptVisible(true);
+      // Clear text selection so toolbar hides
+      window.getSelection()?.removeAllRanges();
+    },
+    [],
+  );
+
+  // Handle AI prompt submit
+  const handleAIPromptSubmit = useCallback(
+    async (prompt: string) => {
+      if (!aiPromptBlockId) return;
+
+      const block = blocks.find((b) => b.id === aiPromptBlockId);
+      if (!block) return;
+
+      // Extract block text
+      const blockText =
+        typeof block.content === "string"
+          ? block.content
+          : Array.isArray(block.content)
+            ? block.content.map((c) => c.text).join("")
+            : "";
+
+      if (!blockText.trim()) {
+        setAiPromptVisible(false);
+        setAiPromptBlockId(null);
+        return;
+      }
+
+      setAiIsLoading(true);
+
+      try {
+        const client = await getAIClient();
+        if (!client) {
+          setAiIsLoading(false);
+          setAiPromptVisible(false);
+          setAiPromptBlockId(null);
+          return;
+        }
+
+        const response = await client.chat([
+          {
+            role: "system",
+            content:
+              "You are a text editor. Edit the following text based on the user's instruction. Return ONLY the edited text, no explanations.",
+          },
+          {
+            role: "user",
+            content: `Text: ${blockText}\n\nInstruction: ${prompt}`,
+          },
+        ]);
+
+        const editedText = response.content.trim();
+
+        // Update the block with AI response
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.id === aiPromptBlockId
+              ? { ...b, content: [{ type: "text" as const, text: editedText }] }
+              : b,
+          ),
+        );
+      } catch {
+        // Silently handle error - block remains unchanged
+      } finally {
+        setAiIsLoading(false);
+        setAiPromptVisible(false);
+        setAiPromptBlockId(null);
+      }
+    },
+    [aiPromptBlockId, blocks],
+  );
+
+  // Handle AI prompt close
+  const handleAIPromptClose = useCallback(() => {
+    if (!aiIsLoading) {
+      setAiPromptVisible(false);
+      setAiPromptBlockId(null);
+    }
+  }, [aiIsLoading]);
+
   // Initialize blocks when thread changes or external content updates
   useEffect(() => {
     // Reset tracking when thread changes
-    if (initializedForThread.current !== activeThreadId) {
-      initializedForThread.current = activeThreadId;
+    if (initializedForThread.current !== effectiveThreadId) {
+      initializedForThread.current = effectiveThreadId;
       lastSentContent.current = null;
     }
 
-    if (!activeThreadId) return;
+    if (!effectiveThreadId) return;
 
     // Compare incoming content to detect external changes
     const incomingContentJson = content ? JSON.stringify(content) : null;
@@ -124,11 +296,11 @@ export default function CustomEditor() {
       setBlocks([emptyBlock]);
       // Let the sync effect handle updating lastSentContent
     }
-  }, [activeThreadId, content]);
+  }, [effectiveThreadId, content]);
 
   // Sync blocks to provider (with duplicate prevention)
   useEffect(() => {
-    if (!activeThreadId) return;
+    if (!effectiveThreadId) return;
 
     // Skip if blocks are empty (initial render)
     if (blocks.length === 0) return;
@@ -138,7 +310,7 @@ export default function CustomEditor() {
 
     lastSentContent.current = blocksJson;
     updateContent(blocks as CanvasContent);
-  }, [blocks, activeThreadId, updateContent]);
+  }, [blocks, effectiveThreadId, updateContent]);
 
   // Block update handler
   const handleUpdate = useCallback(
@@ -240,6 +412,16 @@ export default function CustomEditor() {
         case "code":
           newBlock = createCodeBlock((props?.language as string) || "plaintext");
           break;
+        case "chart":
+          newBlock = createChartBlock(
+            (props?.chartType as import("@/types/chart").ChartType) || "bar"
+          );
+          break;
+        case "columns":
+          newBlock = createColumnsBlock(
+            (props?.layout as import("@/types/chart").ColumnLayout) || "1/1"
+          );
+          break;
         case "paragraph":
         default:
           newBlock = createEmptyParagraph();
@@ -291,6 +473,41 @@ export default function CustomEditor() {
     (item: SlashMenuItem) => {
       if (!slashMenuBlockId) return;
 
+      // Handle AI Edit special type
+      if (item.type === "ai-edit") {
+        handleSlashMenuClose();
+
+        // Remove slash text from block first
+        const block = blocks.find((b) => b.id === slashMenuBlockId);
+        if (block) {
+          const text =
+            typeof block.content === "string"
+              ? block.content
+              : Array.isArray(block.content)
+                ? block.content.map((c) => c.text).join("")
+                : "";
+          const slashIdx = text.lastIndexOf("/");
+          const cleanText = slashIdx >= 0 ? text.slice(0, slashIdx) : text;
+          if (cleanText !== text) {
+            setBlocks((prev) =>
+              prev.map((b) =>
+                b.id === slashMenuBlockId
+                  ? { ...b, content: [{ type: "text" as const, text: cleanText }] }
+                  : b,
+              ),
+            );
+          }
+        }
+
+        // Show AI prompt for this block
+        handleAIEdit({
+          blockId: slashMenuBlockId,
+          startOffset: 0,
+          endOffset: 0,
+        });
+        return;
+      }
+
       // Find the block and get its current content
       const blockIndex = blocks.findIndex((b) => b.id === slashMenuBlockId);
       if (blockIndex === -1) return;
@@ -326,6 +543,16 @@ export default function CustomEditor() {
           break;
         case "code":
           newBlock = createCodeBlock((item.props?.language as string) || "plaintext");
+          break;
+        case "chart":
+          newBlock = createChartBlock(
+            (item.props?.chartType as import("@/types/chart").ChartType) || "bar"
+          );
+          break;
+        case "columns":
+          newBlock = createColumnsBlock(
+            (item.props?.layout as import("@/types/chart").ColumnLayout) || "1/1"
+          );
           break;
         case "paragraph":
         default:
@@ -373,7 +600,7 @@ export default function CustomEditor() {
         ref?.focus();
       }, 0);
     },
-    [slashMenuBlockId, blocks, handleSlashMenuClose]
+    [slashMenuBlockId, blocks, handleSlashMenuClose, handleAIEdit]
   );
 
   // Focus previous block
@@ -537,9 +764,32 @@ export default function CustomEditor() {
     [selectedBlockIds.size],
   );
 
-  // Handle keyboard events for selection
+  // Handle keyboard events for selection and formatting
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Formatting shortcuts (Cmd/Ctrl + B/I/U)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        const activeElement = document.activeElement;
+        // Only apply formatting if in a contentEditable element
+        if (activeElement?.closest('[contenteditable="true"]')) {
+          if (e.key === "b" || e.key === "B") {
+            e.preventDefault();
+            handleStyleToggle("bold");
+            return;
+          }
+          if (e.key === "i" || e.key === "I") {
+            e.preventDefault();
+            handleStyleToggle("italic");
+            return;
+          }
+          if (e.key === "u" || e.key === "U") {
+            e.preventDefault();
+            handleStyleToggle("underline");
+            return;
+          }
+        }
+      }
+
       // Delete selected blocks with Backspace or Delete
       if (
         (e.key === "Backspace" || e.key === "Delete") &&
@@ -579,7 +829,7 @@ export default function CustomEditor() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedBlockIds, blocks]);
+  }, [selectedBlockIds, blocks, handleStyleToggle]);
 
   // Add global mouse up listener to handle mouse up outside the editor
   useEffect(() => {
@@ -920,7 +1170,7 @@ export default function CustomEditor() {
     return "";
   }, [isLoading, isSaving, isDirty]);
 
-  if (!activeThreadId) {
+  if (!effectiveThreadId) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
         <p>Select a thread to view its canvas</p>
@@ -1009,6 +1259,7 @@ export default function CustomEditor() {
             <Block
               ref={(ref) => setBlockRef(block.id, ref)}
               block={block}
+              allBlocks={blocks}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               onAddAfter={handleAddAfter}
@@ -1045,6 +1296,32 @@ export default function CustomEditor() {
           filter={slashMenuFilter}
           onSelect={handleSlashMenuSelect}
           onClose={handleSlashMenuClose}
+        />
+      )}
+
+      {/* Text formatting toolbar */}
+      {textSelectionState.hasSelection && textSelectionState.rect && textSelectionState.selection?.blockId && !aiPromptVisible && (
+        <FormattingToolbar
+          selectionRect={textSelectionState.rect}
+          activeStyles={textSelectionState.activeStyles}
+          selectionInfo={{
+            blockId: textSelectionState.selection.blockId,
+            startOffset: textSelectionState.selection.startOffset,
+            endOffset: textSelectionState.selection.endOffset,
+          }}
+          onStyleToggle={handleStyleToggle}
+          onAIEdit={handleAIEdit}
+          onClose={handleFormattingToolbarClose}
+        />
+      )}
+
+      {/* AI Prompt Input */}
+      {aiPromptVisible && aiPromptAnchorRect && (
+        <AIPromptInput
+          anchorRect={aiPromptAnchorRect}
+          onSubmit={handleAIPromptSubmit}
+          onClose={handleAIPromptClose}
+          isLoading={aiIsLoading}
         />
       )}
     </div>

@@ -7,12 +7,14 @@ import type { ActivityState } from "@/types";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onResearch?: (question: string) => void;
   activityState?: ActivityState;
   placeholder?: string;
 }
 
 export default function ChatInput({
   onSend,
+  onResearch,
   activityState = 'idle',
   placeholder = "Send a message...",
 }: ChatInputProps) {
@@ -40,6 +42,16 @@ export default function ChatInput({
       }
     }
   }, [value, disabled, onSend]);
+
+  const handleResearch = useCallback(() => {
+    if (value.trim() && !disabled && onResearch) {
+      onResearch(value);
+      setValue("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+    }
+  }, [value, disabled, onResearch]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -71,23 +83,37 @@ export default function ChatInput({
         />
 
         <div className="flex items-center justify-between px-3 pb-3">
-          <div>
-            <button className="size-9 flex items-center justify-center rounded-xl transition-all shrink-0 cursor-pointer">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1}
-                stroke="currentColor"
-                className="size-5"
+          <div className="flex items-center gap-1">
+            {/* Research button */}
+            {onResearch && (
+              <button
+                onClick={handleResearch}
+                disabled={disabled || !value.trim()}
+                className={cn(
+                  "size-9 flex items-center justify-center rounded-xl transition-all shrink-0",
+                  value.trim() && !disabled
+                    ? "text-(--text-primary) hover:bg-stone-100 cursor-pointer"
+                    : "text-(--text-secondary)/40 cursor-default"
+                )}
+                aria-label="Deep Research"
+                title="Deep Research"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4.5v15m7.5-7.5h-15"
-                />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="size-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.264.26-2.467.73-3.558"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
 
           <button

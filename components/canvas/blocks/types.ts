@@ -2,6 +2,12 @@
  * Custom Block Editor Types
  */
 
+import type { ChartType, ColumnLayout } from "@/types/chart";
+import { DEFAULT_CHART_DATA } from "@/types/chart";
+
+// Style keys for inline content
+export type StyleKey = "bold" | "italic" | "underline" | "strikethrough" | "code";
+
 // Inline content for rich text (simplified from BlockNote)
 export interface InlineContent {
   type: "text" | "link";
@@ -109,5 +115,49 @@ export function createCodeBlock(language: string = "plaintext"): EditorBlock {
     type: "code",
     content: "",
     props: { language },
+  };
+}
+
+// Create a chart block
+export function createChartBlock(chartType: ChartType = "bar"): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "chart",
+    content: [],
+    props: {
+      chartType,
+      title: "",
+      data: { ...DEFAULT_CHART_DATA },
+      showLegend: true,
+      showGrid: true,
+    },
+  };
+}
+
+// Create a columns block
+export function createColumnsBlock(layout: ColumnLayout = "1/1"): EditorBlock {
+  const colCount =
+    layout === "1" ? 1 : layout === "1/1/1" ? 3 : 2;
+
+  const columns: EditorBlock[] = Array.from({ length: colCount }, () => ({
+    id: generateBlockId(),
+    type: "column",
+    children: [createEmptyParagraph()],
+  }));
+
+  return {
+    id: generateBlockId(),
+    type: "columns",
+    props: { layout },
+    children: columns,
+  };
+}
+
+// Create a single column wrapper
+export function createColumnBlock(): EditorBlock {
+  return {
+    id: generateBlockId(),
+    type: "column",
+    children: [createEmptyParagraph()],
   };
 }

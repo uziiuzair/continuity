@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { messageVariants } from "@/lib/animations";
 import type { Message } from "@/types";
 import { cn } from "@/lib/utils";
+import ToolCallsBlock from "./ToolCallsBlock";
+
+const MCPAppRenderer = lazy(() => import("./MCPAppRenderer"));
+
+/** Extract short tool name from qualified "serverId__toolName" format */
+function extractToolName(qualifiedName: string): string {
+  const separatorIndex = qualifiedName.indexOf("__");
+  if (separatorIndex === -1) return qualifiedName;
+  return qualifiedName.slice(separatorIndex + 2);
+}
 
 interface ChatMessageProps {
   message: Message;
@@ -43,13 +53,36 @@ function truncateContent(content: string): string {
   return content;
 }
 
+/**
+ * Parse :::thinking blocks from message content.
+ * Returns { thinking, body } where thinking is the collapsible part.
+ */
+function parseThinkingBlock(content: string): {
+  thinking: string | null;
+  body: string;
+} {
+  const match = content.match(/^:::thinking\n([\s\S]*?)\n:::\s*/);
+  if (match) {
+    return {
+      thinking: match[1].trim(),
+      body: content.slice(match[0].length).trim(),
+    };
+  }
+  return { thinking: null, body: content };
+}
+
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [isExpanded, setIsExpanded] = useState(false);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
+
+  const { thinking, body: messageBody } = isUser
+    ? { thinking: null, body: message.content }
+    : parseThinkingBlock(message.content);
 
   const isLong = isUser && isLongMessage(message.content);
   const displayContent =
-    isLong && !isExpanded ? truncateContent(message.content) : message.content;
+    isLong && !isExpanded ? truncateContent(message.content) : messageBody;
 
   return isUser ? (
     <motion.div
@@ -90,6 +123,71 @@ export default function ChatMessage({ message }: ChatMessageProps) {
     </motion.div>
   ) : (
     <div className="w-full px-4 py-3 rounded-2xl rounded-bl-md select-text">
+      {/* Collapsible thinking block */}
+      {thinking && (
+        <div className="mb-3">
+          <button
+            onClick={() => setThinkingOpen(!thinkingOpen)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className={cn("size-3 transition-transform", thinkingOpen && "rotate-90")}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+            Thinking
+          </button>
+          <AnimatePresence>
+            {thinkingOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden"
+              >
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-400 pl-[18px] whitespace-pre-wrap">
+                  {thinking}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Tool calls block */}
+      {message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
+        <ToolCallsBlock toolCalls={message.metadata.toolCalls} />
+      )}
+
+      {/* MCP App interactive widgets — rendered prominently at message level */}
+      {message.metadata?.toolCalls
+        ?.filter((tc) => tc.mcpAppHtml && tc.mcpAppServerId)
+        .map((tc) => (
+          <div key={`mcp-app-${tc.id}`} className="mb-3">
+            <Suspense
+              fallback={
+                <div className="rounded-lg border border-stone-200/60 bg-stone-50/50 px-3 py-4 text-xs text-slate-400">
+                  Loading interactive UI...
+                </div>
+              }
+            >
+              <MCPAppRenderer
+                html={tc.mcpAppHtml!}
+                toolName={extractToolName(tc.name)}
+                serverId={tc.mcpAppServerId!}
+                toolInput={tc.arguments}
+                toolResultText={tc.result}
+              />
+            </Suspense>
+          </div>
+        ))}
+
       <div
         className={cn(
           "prose prose-sm max-w-none text-xl text-black",
@@ -175,7 +273,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             ),
           }}
         >
-          {message.content}
+          {displayContent}
         </ReactMarkdown>
       </div>
     </div>

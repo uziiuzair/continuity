@@ -11,7 +11,7 @@ import { useChat } from "@/providers/chat-provider";
 import { useThreads } from "@/providers/threads-provider";
 
 export default function ChatContainer() {
-  const { messages, hasStarted, activityState, sendMessage } = useChat();
+  const { messages, hasStarted, activityState, sendMessage, startResearch } = useChat();
   const { setActiveThread } = useThreads();
 
   const handleThreadClick = (threadId: string) => {
@@ -35,7 +35,7 @@ export default function ChatContainer() {
               <ChatThread messages={messages} />
             </motion.div>
           ) : (
-            <div className="w-7xl mx-auto flex items-center justify-center overflow-y-auto">
+            <div className="flex items-center justify-center overflow-y-auto">
               <motion.div
                 key="briefing"
                 initial={{ opacity: 0 }}
@@ -83,6 +83,7 @@ export default function ChatContainer() {
 
         <ChatInput
           onSend={sendMessage}
+          onResearch={startResearch}
           activityState={activityState}
           placeholder={
             hasStarted ? "Continue the conversation..." : "What's on your mind?"

@@ -203,6 +203,31 @@ export async function initializeSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_journal_date ON journal_entries(date)
   `);
 
+  // Projects table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      custom_prompt TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      archived_at TEXT
+    )
+  `);
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at)
+  `);
+
+  // Add project_id column to threads if not exists
+  const hasProjectIdColumn = threadColumns.some(
+    (col) => col.name === "project_id"
+  );
+  if (!hasProjectIdColumn) {
+    await db.execute("ALTER TABLE threads ADD COLUMN project_id TEXT REFERENCES projects(id)");
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_threads_project_id ON threads(project_id)");
+  }
+
   // Journal links table - bi-directional linking
   await db.execute(`
     CREATE TABLE IF NOT EXISTS journal_links (

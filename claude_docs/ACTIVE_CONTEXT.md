@@ -1,130 +1,134 @@
 # Active Context
 
-**Last Updated**: 2026-02-04 (Implemented Daily Journal Feature)
-**Current Session Focus**: Daily Journal feature with weekly calendar, streak tracking, and bi-directional links
+**Last Updated**: 2026-02-18 (MCP Apps Rendering Fix — v6 Protocol)
+**Current Session Focus**: Fixed MCP Apps rendering — rewrote sandbox proxy for @mcp-ui/client v6 protocol + promoted apps to message-level visibility
 
 ## Current State Summary
 
-Implemented the complete Daily Journal feature per the implementation plan. The journal allows daily note-taking with a weekly calendar navigation strip, streak tracking for consecutive weekdays, and bi-directional linking support. Build passes, all changes verified.
+Fixed 2 MCP Apps bugs: (1) sandbox proxy timeout caused by protocol mismatch — v6 library expects JSON-RPC `method: "ui/notifications/sandbox-proxy-ready"` but old proxy sent legacy `type: "ui-proxy-iframe-ready"`. Rewrote proxy with full v6 AppFrame support (JSON-RPC relay, `sandbox-resource-ready` handling, message buffering). (2) MCP App widgets buried in collapsed tool calls — moved rendering to message level in ChatMessage.tsx.
 
 ---
 
 ## Recently Completed (This Session)
 
-### Daily Journal Feature - Full Implementation
+### MCP Apps Rendering Fix (v6 Protocol Compatible)
 
-#### Feature Overview
-- **Weekly Calendar Strip**: Navigate days with visual indicators for entries
-- **Streak System**: Consecutive weekday streak tracking (Mon-Fri only)
-- **Editor**: Full block-based editor with lazy entry creation
-- **Bi-directional Links**: Infrastructure for linking journal entries to threads/artifacts
+#### Created/Modified Files (4)
 
-#### Database Schema (Phase 1)
+| File | Change |
+|------|--------|
+| `public/mcp-sandbox-proxy.html` | **NEW** — Complete rewrite for @mcp-ui/client v6. Three modes: (1) Legacy rawhtml mode for UIResourceRenderer, (2) Legacy URL mode, (3) **v6 AppFrame mode** (default) — sends JSON-RPC `method: "ui/notifications/sandbox-proxy-ready"`, handles `sandbox-resource-ready` to create inner iframe, relays JSON-RPC bidirectionally with message buffering. |
+| `components/chat/MCPAppRenderer.tsx` | Changed `SANDBOX_URL` from `https://proxy.mcpui.dev` to local `/mcp-sandbox-proxy.html`. |
+| `components/chat/ChatMessage.tsx` | Added lazy `MCPAppRenderer` import + `extractToolName`. Renders MCP App widgets at message level (after ToolCallsBlock, before prose) — always visible. |
+| `components/chat/ToolCallsBlock.tsx` | Removed `MCPAppRenderer` from `ToolCallRow`. Removed lazy import, Suspense. Simplified result display. |
 
-**New Tables Added to `lib/db-service.ts`:**
+#### Root Cause Analysis
+- **Bug 1 (Timeout)**: `@mcp-ui/client` v6.1.0's `loadProxyIframe` checks `d.data.method === "ui/notifications/sandbox-proxy-ready"` (JSON-RPC format). The old proxy at `proxy.mcpui.dev` sends `{ type: "ui-proxy-iframe-ready" }` (legacy format). Protocol mismatch → 10s timeout.
+- **Bug 2 (Hidden UI)**: `hasMCPApp` evaluated before async HTML fetch completed → always `false` → tool calls collapsed by default → MCP App invisible.
 
-```sql
--- Journal entries table
-CREATE TABLE journal_entries (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL UNIQUE,  -- YYYY-MM-DD format
-  content TEXT,               -- JSON blocks
-  word_count INTEGER DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
+#### Key Discovery: v6 AppFrame Protocol
+1. `AppFrame` ALWAYS uses `loadProxyIframe()` — no srcDoc fallback (that's in HTMLResourceRenderer, a different component)
+2. After proxy signals ready, `AppBridge` connects via `PostMessageTransport` (JSON-RPC over postMessage)
+3. `sendSandboxResourceReady({html, csp})` sends HTML as JSON-RPC notification — proxy creates inner iframe
+4. All subsequent host ↔ guest communication is JSON-RPC relayed through proxy
 
--- Journal links table (bi-directional linking)
-CREATE TABLE journal_links (
-  id TEXT PRIMARY KEY,
-  journal_date TEXT NOT NULL,
-  linked_type TEXT NOT NULL,  -- 'thread', 'artifact', 'space'
-  linked_id TEXT NOT NULL,
-  link_type TEXT NOT NULL,    -- 'auto', 'manual'
-  created_at TEXT NOT NULL,
-  FOREIGN KEY (journal_date) REFERENCES journal_entries(date)
-);
-```
+---
 
-#### Files Created
+### Documents Page with Tabs & Split View
+
+#### New Files (8)
 
 | File | Purpose |
 |------|---------|
-| `types/journal.ts` | TypeScript interfaces and date utility helpers |
-| `lib/db/journal.ts` | CRUD operations for journal entries |
-| `lib/db/journal-links.ts` | Link management for bi-directional linking |
-| `providers/journal-provider.tsx` | Context provider with state and actions |
-| `app/journal/page.tsx` | Next.js page route for /journal |
-| `components/journal/JournalPage.tsx` | Main container component |
-| `components/journal/WeeklyCalendar.tsx` | Calendar strip with day navigation |
-| `components/journal/StreakBadge.tsx` | 🔥 streak counter display |
-| `components/journal/JournalEditor.tsx` | Block editor for journal entries |
-| `components/journal/BiDirectionalLinks.tsx` | Links section (expandable) |
-| `components/journal/index.ts` | Barrel exports |
+| `app/documents/page.tsx` | Route entry point, wraps DocumentsPage in DocumentsProvider |
+| `providers/documents-provider.tsx` | Tab state, split view state, document list management |
+| `providers/canvas-instance-provider.tsx` | Per-tab canvas state (mirrors CanvasProvider with threadId prop) |
+| `components/documents/DocumentsPage.tsx` | Main page: grid view ↔ editor mode with keyboard shortcuts |
+| `components/documents/DocumentCard.tsx` | Grid card component with title, preview, relative time |
+| `components/documents/DocumentTabs.tsx` | Tab bar with close buttons, split toggle |
+| `components/documents/DocumentEditor.tsx` | Editor wrapper with CanvasInstanceProvider + editable title |
+| `components/documents/SplitView.tsx` | Horizontal split with draggable divider |
 
-#### Files Modified
+#### Modified Files (5)
 
-| File | Changes |
-|------|---------|
-| `lib/db-service.ts` | Added journal_entries and journal_links tables |
-| `components/layout/Sidebar.tsx` | Wired Daily Journals nav item to /journal route |
+| File | Change |
+|------|--------|
+| `lib/db/threads.ts` | Added `getAllDocuments()` (query threads with canvas content), `createStandaloneDocument()`, `DocumentInfo` type |
+| `components/canvas/CustomEditor.tsx` | Added optional `threadId` and `canvasOverride` props, replaced `activeThreadId` with `effectiveThreadId` |
+| `components/layout/Sidebar.tsx` | Added "Documents" nav item between Projects and Threads |
+| `components/layout/AppShell.tsx` | Hide Canvas panel on `/documents` route |
+| `app/globals.css` | Added document page styles (grid, cards, tabs, editor, split view, divider) |
 
----
-
-## Key Implementation Details
-
-### Streak Calculation Logic
-- Only counts **consecutive weekdays** (Mon-Fri)
-- Weekends don't break the streak
-- Calculated backwards from today
-- Refreshes automatically when entry is saved
-
-### Lazy Entry Creation
-- Entry created only on first keystroke
-- Empty days have no database row
-- Prevents cluttering database with empty entries
-
-### Week Calendar Navigation
-- Click any day to view/edit
-- Left/right arrows to navigate weeks
-- "Today" button appears when today is not in view
-- Dots show days with content
-
-### Swipe Gestures
-- Swipe left/right on editor area to change days
-- Horizontal swipe > 50px triggers navigation
+#### Key Architecture Decisions
+1. **CanvasInstanceProvider** — Each tab gets its own provider with independent load/save/debounce, separate from the global CanvasProvider
+2. **canvasOverride prop** — CustomEditor accepts optional canvas state override, avoiding context shadowing issues
+3. **Standalone documents** — Just threads with initialized canvas content, no schema changes
+4. **Split view** — Two independent DocumentEditor instances with draggable divider
 
 ---
 
-## Verification Plan
+## Verification Checklist
 
-1. **Database**: Tables created on app startup, entries persist across restarts
-2. **Navigation**: Click days, use arrows, swipe gestures, Today button
-3. **Editor**: Type to create entry, auto-save with debounce
-4. **Streak**: Test weekday logic, verify weekends don't break streak
-5. **Links**: Infrastructure ready, UI shows linked items
+### Documents Page
+1. ✅ **Build passes**: `npx next build` with zero errors
+2. ⬜ Navigate to `/documents` via sidebar → see grid of all documents
+3. ⬜ Click "New Document" → creates doc, opens in fullscreen editor
+4. ⬜ Type in editor → content auto-saves (debounced 1s)
+5. ⬜ Close tab → return to grid → re-open doc → content persisted
+6. ⬜ Open multiple documents → tabs appear, click to switch
+7. ⬜ Split view → two editors side-by-side, each saves independently
+8. ⬜ Drag split divider → resize panes
+9. ⬜ `Cmd+W` closes active tab, `Cmd+Shift+]` switches tabs
+10. ⬜ Navigate away from `/documents` → sidebar canvas reappears
 
 ---
 
 ## Next Steps
 
-### Potential Future Enhancements
-- Template suggestions for empty days
-- `/template` slash command
-- @-mention detection for auto-linking
-- Backlinks display in thread view
-- Keyboard shortcuts (arrow keys for day navigation)
+### Testing
+- Test document creation and editing in Tauri app
+- Verify split view with two documents editing simultaneously
+- Confirm keyboard shortcuts work correctly
+- Test that existing sidebar Canvas still works on other pages
+
+### Future Enhancements
+- Document search/filter in grid view
+- Document templates
+- Recent documents in sidebar
 
 ---
 
 ## Previous Sessions
 
-### Session: Block Type Mismatch Fix & Code Block Support
-- Fixed AI-canvas block type mismatch (bulletListItem → listItem)
-- Added code block support with syntax highlighting
-- Updated AI tool definitions for correct block types
+### Session: Canvas Columns, Charts & Live Data
+- Implemented chart blocks (5 types via Recharts), column layouts (6 options), live data (API polling + DB linking)
 
-### Session: AI State Separation
-- Separated AI internal state from user-facing canvas
-- AI uses work_state for tracking (invisible to user)
-- Canvas remains clean for user content only
+### Session: MCP Apps Integration
+- Implemented MCP Apps interactive UI rendering in chat via @mcp-ui/client AppRenderer
+
+### Session: Tool Call Display in Chat Messages
+- Implemented collapsible tool call display for assistant messages
+
+### Session: MCP Client Support
+- Implemented full MCP client support with stdio/HTTP transports
+
+### Session: Multi-Step Deep Research Feature
+- Implemented deep research with parallel sub-agents, Perplexity integration
+
+### Session: Custom Editor Replication Guide
+- Created comprehensive replication guide (1835 lines) for the custom block editor
+
+### Session: Canvas AI Edit Feature
+- Added AI sparkle button and "AI Edit" in slash menu
+
+### Session: Canvas Text Formatting Toolbar
+- Implemented floating formatting toolbar with Bold/Italic/Underline/Strikethrough/Code
+
+### Session: Projects Feature
+- Implemented project organization with custom AI prompts
+
+### Session: Daily Journal Feature
+- Implemented weekly calendar strip, streak tracking, bi-directional links
+
+### Session: Block Type Mismatch Fix & Code Block Support
+- Fixed AI-canvas block type mismatch, added code block support

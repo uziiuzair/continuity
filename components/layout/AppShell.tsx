@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { Canvas } from "@/components/canvas";
 import { useView } from "@/providers/view-provider";
@@ -11,6 +11,8 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const { sidebarExpanded, setSidebarExpanded } = useView();
+  const pathname = usePathname();
+  const isDocumentsPage = pathname.startsWith("/documents");
 
   return (
     <>
@@ -20,7 +22,7 @@ export default function AppShell({ children }: AppShellProps) {
           onToggle={() => setSidebarExpanded(!sidebarExpanded)}
         />
         <main className="flex-1 overflow-hidden">{children}</main>
-        <Canvas />
+        {!isDocumentsPage && <Canvas />}
       </div>
     </>
   );

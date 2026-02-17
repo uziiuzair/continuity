@@ -12,6 +12,34 @@
     "sql:allow-select",
     "sql:allow-load",
     "sql:allow-close",
-    "http:default"
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" }
+      ]
+    },
+    "shell:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        { "name": "npx", "cmd": "npx", "args": true },
+        { "name": "node", "cmd": "node", "args": true },
+        { "name": "python3", "cmd": "python3", "args": true },
+        { "name": "uvx", "cmd": "uvx", "args": true },
+        { "name": "deno", "cmd": "deno", "args": true }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "npx", "cmd": "npx", "args": true },
+        { "name": "node", "cmd": "node", "args": true },
+        { "name": "python3", "cmd": "python3", "args": true },
+        { "name": "uvx", "cmd": "uvx", "args": true },
+        { "name": "deno", "cmd": "deno", "args": true }
+      ]
+    },
+    "shell:allow-stdin-write",
+    "shell:allow-kill"
   ]
 }

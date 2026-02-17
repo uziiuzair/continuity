@@ -22,7 +22,7 @@ interface ThreadsContextProps {
   threads: Thread[];
   activeThreadId: string | null;
   isLoading: boolean;
-  createThread: (title: string) => Promise<Thread>;
+  createThread: (title: string, projectId?: string) => Promise<Thread>;
   updateThread: (threadId: string, title: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   setActiveThread: (threadId: string | null) => void;
@@ -98,12 +98,12 @@ export const ThreadsProvider = ({
     }
   }, []);
 
-  const createThread = useCallback(async (title: string): Promise<Thread> => {
+  const createThread = useCallback(async (title: string, projectId?: string): Promise<Thread> => {
     if (!isTauriContext()) {
       throw new Error("Database operations require Tauri context");
     }
 
-    const thread = await dbCreateThread(title);
+    const thread = await dbCreateThread(title, projectId);
     setThreads((prev) => [thread, ...prev]);
     return thread;
   }, []);

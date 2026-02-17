@@ -6,7 +6,25 @@ import { ListIcon } from "@/components/icons/list-icon";
 import { ParagraphIcon } from "@/components/icons/paragraph-icon";
 import { TableIcon } from "@/components/icons/table-icon";
 import { CodeIcon } from "@/components/icons/code-icon";
+import { ChartIcon } from "@/components/icons/chart-icon";
+import { ColumnsIcon } from "@/components/icons/columns-icon";
 import { cn } from "@/lib/utils";
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      className={className}
+    >
+      <path
+        fill="currentColor"
+        d="M12 8l1.5 3.5L17 13l-3.5 1.5L12 18l-1.5-3.5L7 13l3.5-1.5L12 8Z"
+      />
+    </svg>
+  );
+}
 
 export interface SlashMenuItem {
   id: string;
@@ -87,6 +105,27 @@ const MENU_ITEMS: SlashMenuItem[] = [
     label: "Database",
     description: "Table, Kanban, or Tasks view",
     type: "database",
+  },
+  {
+    id: "chart",
+    icon: <ChartIcon className="size-4" />,
+    label: "Chart",
+    description: "Bar, line, pie, area, or donut chart",
+    type: "chart",
+  },
+  {
+    id: "columns",
+    icon: <ColumnsIcon className="size-4" />,
+    label: "Columns",
+    description: "Multi-column layout",
+    type: "columns",
+  },
+  {
+    id: "ai-edit",
+    icon: <SparkleIcon className="size-4" />,
+    label: "AI Edit",
+    description: "Edit this block with AI",
+    type: "ai-edit",
   },
 ];
 

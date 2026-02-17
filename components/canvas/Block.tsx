@@ -1,12 +1,14 @@
 "use client";
 
 import { forwardRef } from "react";
-import { BlockComponentProps } from "./blocks/types";
+import { BlockComponentProps, EditorBlock } from "./blocks/types";
 import ParagraphBlock from "./blocks/ParagraphBlock";
 import HeadingBlock from "./blocks/HeadingBlock";
 import ListItemBlock from "./blocks/ListItemBlock";
 import DatabaseBlockWrapper from "./blocks/DatabaseBlockWrapper";
 import CodeBlock from "./blocks/CodeBlock";
+import ChartBlock from "./blocks/ChartBlock";
+import ColumnsBlock from "./blocks/ColumnsBlock";
 
 export interface BlockRef {
   focus: () => void;
@@ -16,13 +18,14 @@ export interface BlockRef {
 interface BlockProps extends BlockComponentProps {
   ref?: React.Ref<BlockRef>;
   listPosition?: number;
+  allBlocks?: EditorBlock[];
 }
 
 /**
  * Block component - dispatches to the appropriate block type component
  */
 const Block = forwardRef<BlockRef, BlockProps>(function Block(props, ref) {
-  const { block, listPosition, ...restProps } = props;
+  const { block, listPosition, allBlocks, ...restProps } = props;
 
   switch (block.type) {
     case "paragraph":
@@ -52,6 +55,19 @@ const Block = forwardRef<BlockRef, BlockProps>(function Block(props, ref) {
 
     case "code":
       return <CodeBlock ref={ref} block={block} {...restProps} />;
+
+    case "chart":
+      return (
+        <ChartBlock
+          ref={ref}
+          block={block}
+          allBlocks={allBlocks}
+          {...restProps}
+        />
+      );
+
+    case "columns":
+      return <ColumnsBlock ref={ref} block={block} {...restProps} />;
 
     default:
       return (

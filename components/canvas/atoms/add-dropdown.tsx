@@ -5,6 +5,8 @@ import { ListIcon } from "@/components/icons/list-icon";
 import { ParagraphIcon } from "@/components/icons/paragraph-icon";
 import { QuoteIcon } from "@/components/icons/quote-icon";
 import { TableIcon } from "@/components/icons/table-icon";
+import { ChartIcon } from "@/components/icons/chart-icon";
+import { ColumnsIcon } from "@/components/icons/columns-icon";
 import {
   Menu,
   MenuButton,
@@ -62,6 +64,16 @@ export const AddDropdown = ({ onAddBlock }: AddDropdownProps) => {
       icon: <TableIcon className="size-3" />,
       text: "Database",
       onClick: () => handleAddBlock("database"),
+    },
+    {
+      icon: <ChartIcon className="size-3" />,
+      text: "Chart",
+      onClick: () => handleAddBlock("chart"),
+    },
+    {
+      icon: <ColumnsIcon className="size-3" />,
+      text: "Columns",
+      onClick: () => handleAddBlock("columns"),
     },
     // Future block types (not implemented yet)
     // {

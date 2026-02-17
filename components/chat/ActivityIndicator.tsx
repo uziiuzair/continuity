@@ -12,6 +12,8 @@ const STATUS_TEXT: Record<ActivityState, string> = {
   saving: "Saving progress",
   drafting: "Writing the response",
   waiting: "Waiting",
+  researching: "Researching in depth",
+  "mcp-calling": "Using external tool",
 };
 
 interface ActivityIndicatorProps {

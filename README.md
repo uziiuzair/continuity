@@ -2,13 +2,14 @@
 
 **A local-first AI workspace where chat is the write path and structure emerges from conversation.**
 
-<!-- Screenshot placeholder: Add a screenshot of the app here -->
-<!-- ![Continuity Screenshot](./docs/screenshot.png) -->
+<!-- ![Continuity](./docs/screenshot.png) -->
 
+[![Status: Alpha](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)]()
-[![Built with Tauri](https://img.shields.io/badge/Built%20with-Tauri%202-orange.svg)](https://tauri.app)
+[![Built with Tauri](https://img.shields.io/badge/Tauri-2-orange.svg)](https://tauri.app)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 
 ---
 
@@ -18,9 +19,9 @@ Productivity tools promise to help you think, but most of them ask you to stop t
 
 **Continuity takes a different approach.**
 
-You just talk. Have a conversation about your project, your research, your plans. The system listens, understands, and quietly builds structure in the background—tasks, notes, timelines, decisions—all extracted from your natural conversation.
+You just talk. Have a conversation about your project, your research, your plans. The system listens, understands, and quietly builds structure in the background — tasks, notes, timelines, decisions — all extracted from your natural conversation.
 
-Think of it as the space between ChatGPT (pure chat, no memory) and Notion (powerful, but you build everything manually). Continuity gives you the depth of structured thinking without the overhead of manual organization.
+Today, Continuity is a desktop app that combines conversational AI with a custom block editor, daily journal, project workspaces, deep research, and a full MCP client. You bring your own API keys, everything runs locally, and your data never leaves your machine.
 
 ### Core Philosophy
 
@@ -31,112 +32,146 @@ Think of it as the space between ChatGPT (pure chat, no memory) and Notion (powe
 
 ---
 
-## Who is this for?
+## Features
 
-- **Knowledge workers** doing complex, long-running work that unfolds over time
-- **Researchers, writers, and builders** who think through conversation
-- **Privacy-conscious users** who want to own their data
-- **Anyone tired** of manually organizing their thoughts into someone else's structure
+### Chat & AI
+
+- Streaming AI chat with OpenAI and Anthropic (bring your own keys)
+- 15+ AI tools — canvas editing, web search, memory, artifact creation, and more
+- AI canvas editing via sparkle button and slash menu
+- Persistent AI memory — remember, recall, and forget across conversations
+- Deep research with multi-step reasoning (Perplexity integration)
+- Web search (Tavily) and URL reading
+
+### Block Editor (Canvas)
+
+- Custom block editor with paragraph, heading, list, and code blocks
+- Inline formatting toolbar (bold, italic, underline, strikethrough, code)
+- Chart blocks — 5 chart types via Recharts
+- Column layouts — 6 layout options
+- Database blocks — spreadsheet-style editing via react-datasheet-grid
+- Slash menu and add-block dropdown for quick insertion
+
+### Organization
+
+- Projects with custom AI system prompts
+- Daily journal with calendar strip, streaks, and bi-directional links
+- Documents with split view and tabs
+- Thread management
+
+### MCP (Model Context Protocol)
+
+- Full MCP client supporting stdio and HTTP transports
+- MCP Apps rendering — interactive UI directly in chat
+- Connector management in settings
+
+### Local-First
+
+- SQLite on your machine, works offline
+- Bring your own keys for all providers (OpenAI, Anthropic, Tavily, Perplexity)
+- Cross-platform — macOS, Windows, Linux
+- No accounts required
 
 ---
 
-## Key Features
+## Tech Stack
 
-| Feature                           | Description                                                |
-| --------------------------------- | ---------------------------------------------------------- |
-| **Chat-first interface**          | Natural conversation is your primary input method          |
-| **Automatic artifact extraction** | Tasks, notes, and decisions emerge from your words         |
-| **Spaces**                        | Long-running contexts for projects, domains, or objectives |
-| **Auto-generated dashboards**     | Visual orientation without manual building                 |
-| **Local-first storage**           | SQLite database on your machine, works offline             |
-| **BYOK**                          | Bring Your Own Key for AI providers                        |
-| **Cross-platform**                | macOS, Windows, and Linux                                  |
+| Layer             | Technology                                        |
+| ----------------- | ------------------------------------------------- |
+| Frontend          | Next.js 16 (App Router), React 19, TypeScript 5.9 |
+| Styling           | Tailwind CSS 4, Framer Motion                     |
+| Desktop           | Tauri 2 (Rust)                                    |
+| Database          | SQLite via @tauri-apps/plugin-sql                 |
+| AI                | OpenAI, Anthropic (BYOK)                          |
+| Search            | Tavily, Perplexity                                |
+| Editor            | Custom block editor                               |
+| Charts            | Recharts                                          |
+| Data Grid         | react-datasheet-grid                              |
+| Markdown          | react-markdown, remark-gfm                        |
+| Code Highlighting | prism-react-renderer                              |
+| UI Components     | Headless UI, Mantine                              |
+| MCP               | @mcp-ui/client                                    |
 
 ---
 
-## Installation
+## Project Structure
 
-### Download
-
-> Coming soon: Pre-built binaries for all platforms.
-
-- **macOS**: `.dmg`
-- **Windows**: `.exe` / `.msi`
-- **Linux**: `.AppImage` / `.deb`
-
-### From Source
-
-**Prerequisites:**
-
-- [Node.js](https://nodejs.org/) 20+
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- [npm](https://npmjs.com/) (recommended) or pnpm
-
-**Steps:**
-
-```bash
-# Clone the repository
-git clone https://github.com/uziiuzair/continuity.git
-cd continuity
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm tauri dev
-
-# Build for production
-npm tauri build
+```
+continuity/
+├── app/                    # Next.js pages (home, journal, projects, documents)
+├── components/             # React components
+│   ├── canvas/             # Block editor (blocks, chart, columns, database)
+│   ├── chat/               # Chat UI, research panel, MCP apps
+│   ├── journal/            # Journal editor, calendar, streaks
+│   ├── projects/           # Project management
+│   ├── documents/          # Document editor
+│   ├── layout/             # Sidebar, app shell
+│   └── settings/           # Settings panels
+├── lib/                    # Utilities and services
+│   ├── ai/                 # AI clients, tools, research engine
+│   ├── db/                 # Database operations
+│   └── mcp/                # MCP client and transports
+├── providers/              # 13 React context providers
+├── types/                  # TypeScript types
+├── src-tauri/              # Tauri/Rust backend
+└── public/                 # Static assets
 ```
 
 ---
 
 ## Getting Started
 
-1. **Launch the app** — Open Continuity after installation
-2. **Start talking** — Describe what you're working on, thinking about, or trying to accomplish
-3. **Watch structure emerge** — As you chat, the system extracts tasks, notes, and decisions
-4. **Check your dashboard** — See a visual summary of what Continuity understands about your work
+### Prerequisites
 
-No setup wizards. No templates to choose. Just start thinking out loud.
+- [Node.js](https://nodejs.org/) 20+
+- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
+- [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform
+
+### Install from source
+
+```bash
+git clone https://github.com/uziiuzair/continuity.git
+cd continuity
+npm install
+npm run tauri dev
+```
+
+### Configuration
+
+1. Open **Settings** (gear icon in the sidebar)
+2. Add at least one AI provider key — OpenAI or Anthropic
+3. Optional: add a Tavily key for web search
+4. Optional: add a Perplexity key for deep research
 
 ---
 
 ## Development
 
-### Tech Stack
-
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
-- **Desktop**: Tauri 2
-- **Database**: SQLite (via Tauri SQL plugin)
-- **Backend**: Rust
-
-### Project Structure
-
-```
-continuity/
-├── app/                 # Next.js pages and routes
-├── src/
-│   ├── components/      # React components
-│   └── lib/             # Utilities and database code
-├── src-tauri/           # Tauri/Rust backend
-│   └── src/             # Rust source code
-├── claude_docs/         # Project documentation
-└── public/              # Static assets
-```
-
-### Running Locally
-
 ```bash
 # Development mode with hot reload
-npm tauri dev
+npm run tauri dev
 
 # Type checking
-npm typecheck
+npx tsc --noEmit
 
-# Build production app
-npm tauri build
+# Production build
+npm run tauri build
 ```
+
+---
+
+## Status
+
+**Status: Alpha**
+
+The core experience works — chat, canvas, journal, projects, documents, and MCP. Expect rough edges and breaking changes.
+
+Future considerations:
+
+- Spaces with auto-generated dashboards
+- Graph view for relationship visualization
+- Cross-device sync
+- Plugin system
 
 ---
 
@@ -148,24 +183,15 @@ We welcome contributions. Here's how you can help:
 2. **Suggest features** — Start a discussion about what you'd like to see
 3. **Submit PRs** — Fork, branch, and submit a pull request
 
+To get set up, follow the [Getting Started](#getting-started) instructions above. Check `claude_docs/` for documentation on the codebase and architecture decisions. Run `npx tsc --noEmit` to verify types before submitting.
+
 Please be kind and constructive. We're building something thoughtful here.
-
----
-
-## Support the Project
-
-- ⭐ **Star this repo** to help others discover it
-- 📣 **Tell someone** who might find it useful
-- 🐛 **Report bugs** or suggest improvements
-- 🛠️ **Contribute code** to make it better
 
 ---
 
 ## About
 
-Built by [Ooozzy](https://ooozzy.com) — tiny tools, big curiosity.
-
-We believe in building simple things that do one job well. Continuity is our take on what a thinking tool should be: calm, capable, and respectful of your attention.
+Built by [Ooozzy](https://www.ooozzy.com).
 
 **License**: [MIT](LICENSE)
 

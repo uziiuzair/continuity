@@ -143,7 +143,7 @@ export default function HomeBriefingView({
     >
       <AnimatePresence mode="sync">
         <div className="space-y-8 w-full">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 px-4 max-w-3xl 2xl:max-w-7xl mx-auto 2xl:grid-cols-2 gap-6">
             <DashboardCard>
               <RightNowSection
                 threads={data.rightNow}

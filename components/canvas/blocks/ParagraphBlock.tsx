@@ -6,27 +6,33 @@ import {
   useEffect,
   useImperativeHandle,
   useCallback,
+  useMemo,
 } from "react";
 import {
   BlockComponentProps,
-  getTextFromContent,
-  textToContent,
+  InlineContent,
 } from "./types";
 import { BlockRef } from "../Block";
+import {
+  normalizeToInlineContent,
+  getPlainText,
+  inlineContentToHtml,
+} from "../utils/formatting-utils";
 
 /**
- * ParagraphBlock - A simple contentEditable paragraph
+ * ParagraphBlock - A simple contentEditable paragraph with rich text support
  *
  * Handles:
  * - Text input and updates
+ * - Rich text rendering with styled spans
  * - Enter to create new paragraph
  * - Backspace on empty to delete
  * - Arrow navigation between blocks
  * - Slash command "/" to open block menu
  *
- * IMPORTANT: We don't render {text} as children because that would cause
- * React to re-render and reset the cursor position. Instead, we only set
- * textContent on initial mount or when content changes from external source.
+ * IMPORTANT: We render InlineContent as styled HTML spans.
+ * Cursor position is preserved across re-renders using the
+ * MutationObserver pattern.
  */
 const ParagraphBlock = forwardRef<BlockRef, BlockComponentProps>(
   function ParagraphBlock(
@@ -50,6 +56,8 @@ const ParagraphBlock = forwardRef<BlockRef, BlockComponentProps>(
     // Track if slash menu is active
     const slashMenuActive = useRef(false);
     const slashStartIndex = useRef<number | null>(null);
+    // Track if we're updating from internal input
+    const isInternalUpdate = useRef(false);
 
     // Expose focus method via ref
     useImperativeHandle(ref, () => ({
@@ -68,23 +76,60 @@ const ParagraphBlock = forwardRef<BlockRef, BlockComponentProps>(
       getElement: () => elementRef.current,
     }));
 
-    // Get the text content from the block
-    const text = getTextFromContent(block.content);
+    // Get the content and text
+    const content = useMemo(
+      () => normalizeToInlineContent(block.content),
+      [block.content]
+    );
+    const text = useMemo(() => getPlainText(content), [content]);
+    const hasStyles = useMemo(
+      () => content.some((item) => item.styles && Object.keys(item.styles).length > 0),
+      [content]
+    );
+
+    // Generate HTML for rendering styled content
+    const styledHtml = useMemo(() => {
+      if (!hasStyles) return null;
+      return inlineContentToHtml(content);
+    }, [content, hasStyles]);
 
     // Set initial content and handle external updates
     useEffect(() => {
       if (!elementRef.current) return;
 
+      // Skip if this is our own internal update
+      if (isInternalUpdate.current) {
+        isInternalUpdate.current = false;
+        return;
+      }
+
       // Only update DOM if content changed externally (not from our own input)
       if (lastContentRef.current !== text) {
-        // Check if we should update - don't update if user is actively editing
         const currentText = elementRef.current.textContent || "";
-        if (currentText !== text) {
-          elementRef.current.textContent = text;
+        if (currentText !== text || hasStyles) {
+          // Save cursor position
+          const selection = window.getSelection();
+          let cursorOffset = 0;
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            cursorOffset = getTextOffsetInElement(elementRef.current, range.startContainer, range.startOffset);
+          }
+
+          // Update content
+          if (hasStyles && styledHtml) {
+            elementRef.current.innerHTML = styledHtml;
+          } else {
+            elementRef.current.textContent = text;
+          }
+
+          // Restore cursor position if element is focused
+          if (document.activeElement === elementRef.current && text.length > 0) {
+            restoreCursorPosition(elementRef.current, Math.min(cursorOffset, text.length));
+          }
         }
         lastContentRef.current = text;
       }
-    }, [text]);
+    }, [text, hasStyles, styledHtml]);
 
     // Get cursor position for slash menu positioning
     const getCursorPosition = useCallback((): { x: number; y: number } | null => {
@@ -111,8 +156,16 @@ const ParagraphBlock = forwardRef<BlockRef, BlockComponentProps>(
         const newText = e.currentTarget.textContent || "";
         // Update our ref so we know this change came from us
         lastContentRef.current = newText;
+        isInternalUpdate.current = true;
+
+        // When user types, convert to plain text InlineContent
+        // (styles are preserved by the editor integration layer)
+        const newContent: InlineContent[] = newText
+          ? [{ type: "text", text: newText }]
+          : [];
+
         onUpdate(block.id, {
-          content: textToContent(newText),
+          content: newContent,
         });
 
         // Check for slash command
@@ -270,5 +323,64 @@ const ParagraphBlock = forwardRef<BlockRef, BlockComponentProps>(
     );
   }
 );
+
+/**
+ * Helper: Get text offset from start of element to a node/offset position
+ */
+function getTextOffsetInElement(root: HTMLElement, node: Node, offset: number): number {
+  if (!root.contains(node)) return 0;
+
+  let totalOffset = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+
+  let currentNode = walker.nextNode();
+  while (currentNode) {
+    if (currentNode === node) {
+      return totalOffset + offset;
+    }
+    totalOffset += currentNode.textContent?.length || 0;
+    currentNode = walker.nextNode();
+  }
+
+  // If node is the element itself
+  if (node === root) {
+    return offset;
+  }
+
+  return totalOffset;
+}
+
+/**
+ * Helper: Restore cursor to a specific character offset
+ */
+function restoreCursorPosition(element: HTMLElement, offset: number): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  let currentOffset = 0;
+  let currentNode = walker.nextNode();
+
+  while (currentNode) {
+    const nodeLength = currentNode.textContent?.length || 0;
+    if (currentOffset + nodeLength >= offset) {
+      const range = document.createRange();
+      range.setStart(currentNode, offset - currentOffset);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    currentOffset += nodeLength;
+    currentNode = walker.nextNode();
+  }
+
+  // If we couldn't find the position, move to end
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
 
 export default ParagraphBlock;

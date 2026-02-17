@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MCP-UI Sandbox Proxy</title>
+    <style>
+      html, body { margin: 0; height: 100vh; width: 100vw; }
+      body { display: flex; flex-direction: column; }
+      * { box-sizing: border-box; }
+      iframe {
+        background-color: transparent;
+        border: 0px none transparent;
+        padding: 0px;
+        overflow: hidden;
+        flex-grow: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      /**
+       * MCP-UI Sandbox Proxy for @mcp-ui/client v6+
+       *
+       * Protocol:
+       * 1. Proxy loads → signals readiness via JSON-RPC notification
+       * 2. Host AppBridge connects PostMessageTransport to this window
+       * 3. Host sends "ui/notifications/sandbox-resource-ready" with {html, csp}
+       * 4. Proxy creates inner iframe with the HTML (srcdoc)
+       * 5. Guest app in inner iframe communicates via JSON-RPC to this window
+       * 6. Proxy relays all JSON-RPC messages bidirectionally: host ↔ guest
+       */
+
+      const params = new URLSearchParams(location.search);
+      const contentType = params.get('contentType');
+      const target = params.get('url');
+
+      function isValidHttpUrl(string) {
+        try {
+          const url = new URL(string);
+          return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch (_) {
+          return false;
+        }
+      }
+
+      // ── Legacy rawhtml mode (for UIResourceRenderer / HTMLResourceRenderer) ──
+      if (contentType === 'rawhtml') {
+        const inner = document.createElement('iframe');
+        inner.style = 'width:100%; height:100%; border:none;';
+        inner.setAttribute('sandbox', 'allow-scripts');
+        document.body.appendChild(inner);
+
+        window.addEventListener('message', (event) => {
+          if (event.source === window.parent) {
+            if (event.data && event.data.type === 'ui-html-content') {
+              const payload = event.data.payload || {};
+              if (typeof payload.sandbox === 'string') {
+                inner.setAttribute('sandbox', payload.sandbox);
+              }
+              if (typeof payload.html === 'string') {
+                inner.srcdoc = payload.html;
+              }
+            } else {
+              if (inner.contentWindow) {
+                inner.contentWindow.postMessage(event.data, '*');
+              }
+            }
+          } else if (event.source === inner.contentWindow) {
+            window.parent.postMessage(event.data, '*');
+          }
+        });
+
+        // Legacy ready signal (type-based)
+        window.parent.postMessage({ type: 'ui-proxy-iframe-ready' }, '*');
+
+      // ── Legacy external URL mode ──
+      } else if (target) {
+        if (!isValidHttpUrl(target)) {
+          document.body.textContent = 'Error: invalid URL.';
+        } else {
+          const inner = document.createElement('iframe');
+          inner.src = target;
+          inner.style = 'width:100%; height:100%; border:none;';
+          inner.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+          document.body.appendChild(inner);
+          const urlOrigin = new URL(target).origin;
+
+          window.addEventListener('message', (event) => {
+            if (event.source === window.parent) {
+              inner.contentWindow.postMessage(event.data, urlOrigin);
+            } else if (event.source === inner.contentWindow) {
+              window.parent.postMessage(event.data, '*');
+            }
+          });
+        }
+
+      // ── v6 AppFrame mode (default — no query params) ──
+      } else {
+        let inner = null;
+        let innerReady = false;
+        const bufferedMessages = [];
+
+        function flushBuffer() {
+          if (!inner || !inner.contentWindow) return;
+          while (bufferedMessages.length > 0) {
+            inner.contentWindow.postMessage(bufferedMessages.shift(), '*');
+          }
+        }
+
+        function createGuestIframe(html) {
+          if (inner) {
+            inner.remove();
+          }
+          inner = document.createElement('iframe');
+          inner.style = 'width:100%; height:100%; border:none;';
+          inner.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+          inner.srcdoc = html;
+          inner.addEventListener('load', () => {
+            innerReady = true;
+            flushBuffer();
+          });
+          document.body.appendChild(inner);
+        }
+
+        window.addEventListener('message', (event) => {
+          if (event.source === window.parent) {
+            const data = event.data;
+
+            // Check for sandbox-resource-ready notification (JSON-RPC)
+            if (data && data.method === 'ui/notifications/sandbox-resource-ready') {
+              const params = data.params || {};
+              if (typeof params.html === 'string') {
+                createGuestIframe(params.html);
+              }
+              // Don't forward this notification to the guest — it's for the proxy
+              return;
+            }
+
+            // Forward all other messages from host to guest
+            if (inner && inner.contentWindow && innerReady) {
+              inner.contentWindow.postMessage(data, '*');
+            } else {
+              // Buffer until guest iframe is ready
+              bufferedMessages.push(data);
+            }
+
+          } else if (inner && event.source === inner.contentWindow) {
+            // Relay messages from guest to host
+            window.parent.postMessage(event.data, '*');
+          }
+        });
+
+        // v6 ready signal (JSON-RPC method-based)
+        window.parent.postMessage({
+          method: 'ui/notifications/sandbox-proxy-ready'
+        }, '*');
+      }
+    </script>
+  </body>
+</html>

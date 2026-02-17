@@ -24,6 +24,7 @@
       "csp": null
     }
   },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": "all",
@@ -33,6 +34,26 @@
       "icons/continuity/128x128@2x.png",
       "icons/continuity/icon.icns",
       "icons/continuity/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "height": 400,
+          "width": 660
+        }
+      },
+      "files": {},
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.13",
+      "signingIdentity": "1B48A3DAAD73573DB9E1B5E67774D2621E69E552"
+    }
   }
 }

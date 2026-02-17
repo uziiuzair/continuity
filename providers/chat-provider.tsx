@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityState, ChatState, Message } from "@/types";
+import { ActivityState, ChatState, Message, ToolCallDisplay } from "@/types";
 import {
   createContext,
   useCallback,
@@ -10,7 +10,9 @@ import {
   useRef,
 } from "react";
 import { useThreads } from "./threads-provider";
+import { useProjects } from "./projects-provider";
 import { useCanvas } from "./canvas-provider";
+import { getProject } from "@/lib/db/projects";
 import { isTauriContext } from "@/lib/db";
 import { createMessage, getMessagesByThread } from "@/lib/db/messages";
 import {
@@ -58,21 +60,50 @@ import {
   WORK_STATE_TOOLS_SYSTEM_PROMPT,
   executeWorkStateTool,
 } from "@/lib/ai/work-state-tools";
+import {
+  RESEARCH_TOOLS,
+  RESEARCH_TOOL_NAMES,
+  RESEARCH_TOOLS_SYSTEM_PROMPT,
+} from "@/lib/ai/research-tools";
+import {
+  getMCPToolDefinitions,
+  getMCPToolNames,
+  getMCPToolsSystemPrompt,
+  executeMCPTool,
+  getMCPToolUIResourceUri,
+  getServerIdFromQualifiedName,
+  fetchMCPAppHtml,
+} from "@/lib/ai/mcp-tools";
+import { MCPManager } from "@/lib/mcp/manager";
+import { runResearch } from "@/lib/ai/research-engine";
+import { getSearchProvider } from "@/lib/ai/search-provider";
+import { ResearchState } from "@/types/research";
+import { SimpleBlock } from "@/lib/canvas";
+import { appendCanvasBlocks } from "@/lib/db/canvas";
 import { WORKSPACE_AGENT_PROMPT } from "@/lib/ai/workspace-agent-prompt";
 
 interface ChatContextType extends ChatState {
   sendMessage: (content: string) => void;
   clearMessages: () => void;
   loadMessages: (threadId: string) => Promise<void>;
+  startResearch: (question: string) => void;
 
   canvasIsOpen: boolean;
   setCanvasIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  researchState: ResearchState;
+  cancelResearch: () => void;
 }
 
 /**
  * Maps tool names to appropriate activity states
  */
 function getActivityStateForTool(toolName: string): ActivityState {
+  // Deep research
+  if (toolName === 'deep_research') {
+    return 'researching';
+  }
+
   // Searching - web and external lookups
   if (['web_search', 'read_url', 'get_current_time'].includes(toolName)) {
     return 'searching';
@@ -94,28 +125,39 @@ function getActivityStateForTool(toolName: string): ActivityState {
     return 'extracting';
   }
 
+  // MCP external tools
+  if (getMCPToolNames().includes(toolName)) {
+    return 'mcp-calling';
+  }
+
   // Default: updating workspace (canvas, database, etc.)
   return 'updating';
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// All available tools combined
-const ALL_TOOLS: ToolDefinition[] = [
+// Static built-in tools
+const BUILTIN_TOOLS: ToolDefinition[] = [
   ...CANVAS_TOOLS,
   ...WEB_TOOLS,
   ...MEMORY_TOOLS,
   ...ARTIFACT_TOOLS,
   ...DATABASE_TOOLS,
   ...WORK_STATE_TOOLS,
+  ...RESEARCH_TOOLS,
 ];
 
 // Canvas tool names for checking if we need to refresh
 const CANVAS_TOOL_NAMES = CANVAS_TOOLS.map((t) => t.name);
 
+// Get all tools including dynamic MCP tools
+function getAllTools(): ToolDefinition[] {
+  return [...BUILTIN_TOOLS, ...getMCPToolDefinitions()];
+}
+
 // Convert our tool definitions to AI SDK format
 function getAllToolsForAI(): AITool[] {
-  return ALL_TOOLS.map((tool) => ({
+  return getAllTools().map((tool) => ({
     type: "function" as const,
     function: {
       name: tool.name,
@@ -180,24 +222,33 @@ Work unfolds over time. Remember what was discussed, what was decided, what ques
 
 The goal is steady, clear progress. Not performance.`;
 
-// Combined system prompt for all tools
-const COMBINED_TOOLS_SYSTEM_PROMPT = `
-${PERSONALITY_SYSTEM_PROMPT}
+// Build system prompt dynamically (includes MCP tools when available)
+function buildSystemPrompt(): string {
+  const mcpPrompt = getMCPToolsSystemPrompt();
+  const parts = [
+    PERSONALITY_SYSTEM_PROMPT,
+    WORKSPACE_AGENT_PROMPT,
+    CANVAS_TOOLS_SYSTEM_PROMPT,
+    WEB_TOOLS_SYSTEM_PROMPT,
+    MEMORY_TOOLS_SYSTEM_PROMPT,
+    ARTIFACT_TOOLS_SYSTEM_PROMPT,
+    DATABASE_TOOLS_SYSTEM_PROMPT,
+    WORK_STATE_TOOLS_SYSTEM_PROMPT,
+    RESEARCH_TOOLS_SYSTEM_PROMPT,
+  ];
+  if (mcpPrompt) {
+    parts.push(mcpPrompt);
+  }
+  return parts.join("\n\n").trim();
+}
 
-${WORKSPACE_AGENT_PROMPT}
-
-${CANVAS_TOOLS_SYSTEM_PROMPT}
-
-${WEB_TOOLS_SYSTEM_PROMPT}
-
-${MEMORY_TOOLS_SYSTEM_PROMPT}
-
-${ARTIFACT_TOOLS_SYSTEM_PROMPT}
-
-${DATABASE_TOOLS_SYSTEM_PROMPT}
-
-${WORK_STATE_TOOLS_SYSTEM_PROMPT}
-`.trim();
+const INITIAL_RESEARCH_STATE: ResearchState = {
+  isActive: false,
+  progress: null,
+  result: null,
+  error: null,
+  messageId: null,
+};
 
 export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -207,18 +258,23 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
+  const [researchState, setResearchState] = useState<ResearchState>(INITIAL_RESEARCH_STATE);
 
   // Derive isLoading for backward compatibility
   const isLoading = activityState !== 'idle';
 
   const { activeThreadId, createThread, setActiveThread, touchThread } =
     useThreads();
+  const { activeProjectId } = useProjects();
 
   // Get refresh function from canvas provider (to update UI after DB writes)
   const { refreshContent } = useCanvas();
 
   // Track whether canvas system prompt has been added
   const canvasSystemPromptAdded = useRef(false);
+
+  // Research cancellation ref
+  const researchCancelledRef = useRef(false);
 
   const hasStarted = messages.length > 0;
 
@@ -230,6 +286,30 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
       setMessages([]);
     }
   }, [activeThreadId]);
+
+  // Cancel research if thread changes
+  useEffect(() => {
+    if (researchState.isActive) {
+      researchCancelledRef.current = true;
+      setResearchState(INITIAL_RESEARCH_STATE);
+      setActivityState('idle');
+    }
+  }, [activeThreadId]);
+
+  // Reset system prompt when project changes so new project's custom prompt is applied
+  useEffect(() => {
+    canvasSystemPromptAdded.current = false;
+  }, [activeProjectId]);
+
+  // Subscribe to MCP tool changes — force system prompt rebuild when tools change
+  useEffect(() => {
+    if (!isTauriContext()) return;
+    const manager = MCPManager.getInstance();
+    const unsubscribe = manager.subscribe(() => {
+      canvasSystemPromptAdded.current = false;
+    });
+    return unsubscribe;
+  }, []);
 
   const loadMessages = useCallback(async (threadId: string): Promise<void> => {
     if (!isTauriContext()) return;
@@ -269,7 +349,120 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
 
         // Route to appropriate tool executor
         let result;
-        if (CANVAS_TOOL_NAMES.includes(tc.function.name)) {
+        if (RESEARCH_TOOL_NAMES.includes(tc.function.name)) {
+          // Deep research — handled async, return immediately
+          const researchArgs = args as { question: string; context?: string };
+          const searchProvider = await getSearchProvider();
+          if (!searchProvider) {
+            result = {
+              toolCallId: tc.id,
+              result: "No search provider configured. Please add a Perplexity or Tavily API key in Settings > API Keys.",
+              success: false,
+            };
+          } else {
+            const client = await getAIClient();
+            if (!client) {
+              result = {
+                toolCallId: tc.id,
+                result: "AI client not available.",
+                success: false,
+              };
+            } else {
+              // Start research asynchronously
+              researchCancelledRef.current = false;
+              setResearchState({
+                isActive: true,
+                progress: null,
+                result: null,
+                error: null,
+                messageId: null,
+              });
+              setActivityState('researching');
+
+              // Fire and forget — research engine manages its own lifecycle
+              runResearch(
+                researchArgs.question,
+                researchArgs.context || "",
+                client,
+                searchProvider,
+                {
+                  onProgress: (progress) => {
+                    setResearchState((prev) => ({ ...prev, progress }));
+                  },
+                  onComplete: async (researchResult) => {
+                    // Write report to canvas
+                    if (threadId) {
+                      try {
+                        const blocks = markdownToSimpleBlocks(researchResult.report);
+                        await appendCanvasBlocks(threadId, blocks);
+                        await refreshContent();
+                        setCanvasIsOpen(true);
+                      } catch (err) {
+                        console.error("Failed to write research report to canvas:", err);
+                      }
+                    }
+
+                    // Save summary as assistant message
+                    if (isTauriContext() && threadId) {
+                      const summaryBody = researchResult.summary + `\n\n*Full report written to canvas. ${researchResult.totalSearches} searches, ${researchResult.totalUrlsRead} sources read, ${Math.round(researchResult.elapsedMs / 1000)}s elapsed.*`;
+
+                      // Update the assistant message in UI, preserving any thinking block
+                      setMessages((prev) => {
+                        const lastAssistantIdx = prev.length - 1;
+                        if (lastAssistantIdx >= 0 && prev[lastAssistantIdx].role === "assistant") {
+                          const updated = [...prev];
+                          const existingContent = updated[lastAssistantIdx].content;
+                          // Preserve the :::thinking block if present
+                          const thinkingMatch = existingContent.match(/^:::thinking\n[\s\S]*?\n:::/);
+                          const thinkingPrefix = thinkingMatch ? thinkingMatch[0] + "\n\n" : "";
+                          const fullContent = thinkingPrefix + summaryBody;
+                          updated[lastAssistantIdx] = {
+                            ...updated[lastAssistantIdx],
+                            content: fullContent,
+                          };
+                          // Save to DB (without the thinking marker for clean storage)
+                          createMessage(threadId!, "assistant", summaryBody).then(() => touchThread(threadId!));
+                          return updated;
+                        }
+                        // Otherwise add a new message
+                        createMessage(threadId!, "assistant", summaryBody).then(() => touchThread(threadId!));
+                        return [...prev, {
+                          id: generateId(),
+                          threadId: threadId || "",
+                          role: "assistant" as const,
+                          content: summaryBody,
+                          createdAt: new Date(),
+                        }];
+                      });
+                    }
+
+                    setResearchState((prev) => ({
+                      ...prev,
+                      isActive: false,
+                      result: researchResult,
+                    }));
+                    setActivityState('idle');
+                  },
+                  onError: (err) => {
+                    setResearchState((prev) => ({
+                      ...prev,
+                      isActive: false,
+                      error: err.message,
+                    }));
+                    setActivityState('idle');
+                  },
+                  isCancelled: () => researchCancelledRef.current,
+                }
+              );
+
+              result = {
+                toolCallId: tc.id,
+                result: "Research initiated. Parallel agents are now investigating sub-questions. Progress is shown in the research panel. A summary will appear in chat and the full report will be written to the canvas when complete.",
+                success: true,
+              };
+            }
+          }
+        } else if (CANVAS_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeCanvasTool(toolCall, threadId);
         } else if (WEB_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeWebTool(toolCall);
@@ -281,6 +474,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           result = await executeDatabaseTool(toolCall, threadId);
         } else if (WORK_STATE_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeWorkStateTool(toolCall, threadId);
+        } else if (getMCPToolNames().includes(tc.function.name)) {
+          result = await executeMCPTool(toolCall);
         } else {
           result = {
             toolCallId: tc.id,
@@ -390,11 +585,33 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         // Build messages for AI (include history)
         const aiMessages: AIChatMessage[] = [];
 
-        // Always add combined tools system prompt
+        // Build system prompt with optional project instructions
         if (!canvasSystemPromptAdded.current) {
+          let systemPrompt = buildSystemPrompt();
+
+          // Add project-specific instructions if in a project context
+          if (activeProjectId && isTauriContext()) {
+            try {
+              const project = await getProject(activeProjectId);
+              if (project?.customPrompt) {
+                systemPrompt = `${systemPrompt}
+
+## Project Instructions
+
+You are currently working within the "${project.name}" project. The user has provided the following custom instructions for this project:
+
+${project.customPrompt}
+
+Apply these instructions to all responses within this project context.`;
+              }
+            } catch (error) {
+              console.error("Failed to load project for custom prompt:", error);
+            }
+          }
+
           aiMessages.push({
             role: "system",
-            content: COMBINED_TOOLS_SYSTEM_PROMPT,
+            content: systemPrompt,
           });
           canvasSystemPromptAdded.current = true;
         }
@@ -439,6 +656,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         const MAX_TOOL_ITERATIONS = 10; // Safety limit
         let iterations = 0;
         let hasReceivedFirstChunk = false;
+        let thinkingContent = ""; // Accumulated thinking from tool-call rounds
+        const accumulatedToolCalls: ToolCallDisplay[] = [];
 
         while (iterations < MAX_TOOL_ITERATIONS) {
           iterations++;
@@ -480,28 +699,144 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
               setActivityState(getActivityStateForTool(firstToolName));
             }
 
+            // Capture streamed content as "thinking" before clearing
+            if (finalContent.trim()) {
+              thinkingContent += (thinkingContent ? "\n\n" : "") + finalContent.trim();
+            }
+
+            // Track tool calls for display (skip deep_research — has its own panel)
+            const newToolCalls: ToolCallDisplay[] = response.toolCalls
+              .filter((tc) => tc.function.name !== "deep_research")
+              .map((tc) => {
+                let parsedArgs: Record<string, unknown> = {};
+                try {
+                  parsedArgs = JSON.parse(tc.function.arguments);
+                } catch { /* ignore parse errors */ }
+                return {
+                  id: tc.id,
+                  name: tc.function.name,
+                  arguments: parsedArgs,
+                  startedAt: Date.now(),
+                };
+              });
+            accumulatedToolCalls.push(...newToolCalls);
+
+            // Update UI with "executing" state
+            if (newToolCalls.length > 0) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        metadata: {
+                          ...msg.metadata,
+                          toolCalls: [...accumulatedToolCalls],
+                        },
+                      }
+                    : msg
+                )
+              );
+            }
+
             // Execute tool calls
             const toolResults = await executeToolCalls(
               response.toolCalls,
               threadId || ""
             );
 
+            // Update tool call displays with results
+            for (const tc of response.toolCalls) {
+              const display = accumulatedToolCalls.find((d) => d.id === tc.id);
+              if (display) {
+                const matchingResult = toolResults.find(
+                  (r) => r.toolCallId === tc.id
+                );
+                display.result = matchingResult
+                  ? typeof matchingResult.content === "string"
+                    ? matchingResult.content
+                    : JSON.stringify(matchingResult.content)
+                  : undefined;
+                display.success = display.result
+                  ? !display.result.startsWith("Error") &&
+                    !display.result.startsWith("Unknown tool")
+                  : undefined;
+                display.completedAt = Date.now();
+
+                // MCP Apps: check if this tool has an interactive UI
+                if (
+                  display.success &&
+                  getMCPToolNames().includes(tc.function.name)
+                ) {
+                  const resourceUri = getMCPToolUIResourceUri(tc.function.name);
+                  if (resourceUri) {
+                    const serverId = getServerIdFromQualifiedName(
+                      tc.function.name
+                    );
+                    if (serverId) {
+                      fetchMCPAppHtml(serverId, resourceUri).then((html) => {
+                        if (html) {
+                          display.mcpAppHtml = html;
+                          display.mcpAppResourceUri = resourceUri;
+                          display.mcpAppServerId = serverId;
+                          // Trigger re-render with updated MCP App data
+                          setMessages((prev) =>
+                            prev.map((msg) =>
+                              msg.id === assistantMessageId
+                                ? {
+                                    ...msg,
+                                    metadata: {
+                                      ...msg.metadata,
+                                      toolCalls: [...accumulatedToolCalls],
+                                    },
+                                  }
+                                : msg
+                            )
+                          );
+                        }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // Update UI with completed tool calls
+            if (newToolCalls.length > 0) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        metadata: {
+                          ...msg.metadata,
+                          toolCalls: [...accumulatedToolCalls],
+                        },
+                      }
+                    : msg
+                )
+              );
+            }
+
             // Add tool results to messages
             currentMessages.push(...toolResults);
 
             // Clear the streamed content for next iteration
-            // (the AI will generate a new response after seeing tool results)
+            // Show thinking in a collapsed block instead of clearing entirely
             finalContent = "";
-            hasReceivedFirstChunk = false; // Reset for next streaming round
+            hasReceivedFirstChunk = false;
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessageId
-                  ? { ...msg, content: "" }
+                  ? { ...msg, content: thinkingContent ? `:::thinking\n${thinkingContent}\n:::` : "" }
                   : msg
               )
             );
           } else {
             // No more tool calls, we're done
+            // Prefix final content with thinking if any was captured
+            if (thinkingContent) {
+              finalContent = `:::thinking\n${thinkingContent}\n:::\n\n${finalContent}`;
+            }
             break;
           }
         }
@@ -509,6 +844,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         setStreamingMessageId(null);
 
         // Update message with final content and metadata
+        const finalToolCalls =
+          accumulatedToolCalls.length > 0 ? accumulatedToolCalls : undefined;
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -519,18 +856,23 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
                     ...msg.metadata,
                     model: response?.model,
                     tokens: response?.tokens,
+                    toolCalls: finalToolCalls,
                   },
                 }
               : msg
           )
         );
 
-        // Save to DB
+        // Save to DB — strip mcpAppHtml from tool calls to avoid bloating storage
         if (isTauriContext() && threadId && finalContent) {
+          const dbToolCalls = finalToolCalls?.map(
+            ({ mcpAppHtml: _, ...rest }) => rest
+          );
           await createMessage(threadId, "assistant", finalContent, {
             model: response?.model,
             provider: aiConfig.provider,
             tokens: response?.tokens,
+            toolCalls: dbToolCalls,
           });
           await touchThread(threadId);
         }
@@ -569,11 +911,32 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
     ]
   );
 
+  /**
+   * Start deep research from explicit button click.
+   * Creates a user message and triggers the sendMessage flow which
+   * will cause the AI to call deep_research.
+   */
+  const startResearch = useCallback(
+    (question: string) => {
+      if (!question.trim() || isLoading) return;
+      // Prefix to hint the AI to use deep_research tool
+      sendMessage(`[Research] ${question}`);
+    },
+    [sendMessage, isLoading]
+  );
+
+  const cancelResearch = useCallback(() => {
+    researchCancelledRef.current = true;
+    setResearchState(INITIAL_RESEARCH_STATE);
+    setActivityState('idle');
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(undefined);
     setActiveThread(null);
     canvasSystemPromptAdded.current = false;
+    setResearchState(INITIAL_RESEARCH_STATE);
   }, [setActiveThread]);
 
   return (
@@ -587,9 +950,13 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
         sendMessage,
         clearMessages,
         loadMessages,
+        startResearch,
 
         canvasIsOpen,
         setCanvasIsOpen,
+
+        researchState,
+        cancelResearch,
       }}
     >
       {children}
@@ -607,4 +974,75 @@ export const useChat = (): ChatContextType => {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Convert markdown text to SimpleBlock[] for canvas output.
+ * Handles headings, paragraphs, and list items.
+ */
+function markdownToSimpleBlocks(markdown: string): SimpleBlock[] {
+  const blocks: SimpleBlock[] = [];
+  const lines = markdown.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip empty lines
+    if (!line.trim()) continue;
+
+    // Headings
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length as 1 | 2 | 3;
+      blocks.push({
+        type: "heading",
+        content: headingMatch[2].trim(),
+        props: { level },
+      });
+      continue;
+    }
+
+    // Bullet list items
+    const bulletMatch = line.match(/^\s*[-*]\s+(.+)/);
+    if (bulletMatch) {
+      blocks.push({
+        type: "listItem" as SimpleBlock["type"],
+        content: bulletMatch[1].trim(),
+        props: { listType: "bullet" },
+      });
+      continue;
+    }
+
+    // Numbered list items
+    const numberedMatch = line.match(/^\s*\d+\.\s+(.+)/);
+    if (numberedMatch) {
+      blocks.push({
+        type: "listItem" as SimpleBlock["type"],
+        content: numberedMatch[1].trim(),
+        props: { listType: "numbered" },
+      });
+      continue;
+    }
+
+    // Horizontal rules / metadata
+    if (line.match(/^---+\s*$/)) continue;
+
+    // Code block (skip — too complex for simple blocks)
+    if (line.startsWith("```")) {
+      // Skip until closing ```
+      while (i + 1 < lines.length && !lines[i + 1].startsWith("```")) {
+        i++;
+      }
+      if (i + 1 < lines.length) i++; // Skip closing ```
+      continue;
+    }
+
+    // Regular paragraph
+    blocks.push({
+      type: "paragraph",
+      content: line.trim(),
+    });
+  }
+
+  return blocks;
 }

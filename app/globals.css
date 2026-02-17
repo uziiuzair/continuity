@@ -49,7 +49,6 @@
   font-weight: 700;
   font-style: italic;
 }
-
 @font-face {
   font-family: "Noto Sans";
   src: url("./fonts/NotoSans-Regular.ttf") format("truetype");
@@ -1225,4 +1224,587 @@ tr:hover .row-delete-btn {
 
 .code-highlighted.empty {
   @apply text-(--text-secondary) opacity-50;
+}
+
+/* ============================================
+   FORMATTING TOOLBAR STYLES
+   ============================================ */
+
+.formatting-toolbar {
+  @apply fixed z-1000 flex items-center gap-0.5 px-1 py-1 bg-white border border-black/8 rounded-lg shadow-lg;
+  transition: opacity 0.1s ease;
+}
+
+.formatting-toolbar-btn {
+  @apply flex items-center justify-center size-8 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer transition-all duration-100;
+}
+
+.formatting-toolbar-btn:hover {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+.formatting-toolbar-btn.active {
+  @apply bg-(--color-electric-violet-100) text-(--color-electric-violet);
+}
+
+.formatting-toolbar-btn:active {
+  @apply bg-black/10;
+}
+
+.formatting-toolbar-btn.ai-edit-btn {
+  @apply text-(--color-electric-violet);
+}
+
+.formatting-toolbar-btn.ai-edit-btn:hover {
+  @apply bg-(--color-electric-violet-100) text-(--color-electric-violet);
+}
+
+.formatting-toolbar-separator {
+  @apply w-px h-4 bg-black/10 mx-0.5;
+}
+
+/* ============================================
+   AI PROMPT INPUT STYLES
+   ============================================ */
+
+.ai-prompt-input {
+  @apply fixed z-1000 bg-white border border-black/8 rounded-lg shadow-lg;
+  transition: opacity 0.1s ease;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.ai-prompt-input-form {
+  @apply flex items-center gap-2 px-3 py-2;
+}
+
+.ai-prompt-input-icon {
+  @apply size-4 text-(--color-electric-violet) shrink-0;
+}
+
+.ai-prompt-input-field {
+  @apply flex-1 bg-transparent border-none outline-none text-sm text-(--text-primary) placeholder:text-(--text-tertiary);
+}
+.ai-prompt-input-btn {
+  @apply flex items-center justify-center size-6 rounded bg-(--color-electric-violet) text-white cursor-pointer border-none transition-opacity duration-100;
+}
+
+.ai-prompt-input-btn:hover {
+  @apply opacity-80;
+}
+
+.ai-prompt-input-btn:disabled {
+  @apply opacity-30 cursor-default;
+}
+
+.ai-prompt-input.loading {
+  @apply opacity-90;
+}
+
+.ai-prompt-input-spinner {
+  @apply size-4 border-2 border-(--color-electric-violet-100) border-t-(--color-electric-violet) rounded-full animate-spin shrink-0;
+}
+
+/* ============================================
+   INLINE FORMATTED TEXT STYLES
+   ============================================ */
+
+.fmt-bold {
+  @apply font-bold;
+}
+
+.fmt-italic {
+  @apply italic;
+}
+
+.fmt-underline {
+  @apply underline;
+}
+
+.fmt-strikethrough {
+  @apply line-through;
+}
+
+.fmt-code {
+  @apply px-1 py-0.5 font-mono text-[0.9em] bg-black/5 rounded;
+}
+
+/* ============================================
+   CHART BLOCK STYLES
+   ============================================ */
+
+.chart-block {
+  @apply my-2 bg-white rounded-lg border border-black/6 overflow-hidden;
+}
+
+.chart-block:focus {
+  @apply outline-none ring-2 ring-(--color-electric-violet-200);
+}
+
+.chart-block-title-row {
+  @apply px-4 pt-3;
+}
+
+.chart-block-title {
+  @apply w-full bg-transparent border-none outline-none text-base font-semibold text-(--text-primary) placeholder:text-(--text-secondary) placeholder:opacity-40;
+}
+
+.chart-block-display {
+  @apply px-4 py-2;
+}
+
+.chart-block-editor {
+  @apply border-t border-black/6;
+}
+
+.chart-display-empty {
+  @apply flex items-center justify-center h-40 text-sm text-(--text-secondary);
+}
+
+/* Chart Toolbar */
+.chart-toolbar {
+  @apply flex items-center justify-between px-4 py-1.5 border-b border-black/6 bg-black/2;
+}
+
+.chart-toolbar-types {
+  @apply flex items-center gap-0.5 p-0.5 bg-black/4 rounded-md;
+}
+
+.chart-toolbar-type-btn {
+  @apply px-2.5 py-1 text-xs font-medium text-(--text-secondary) rounded cursor-pointer transition-all duration-100 border-none bg-transparent;
+}
+
+.chart-toolbar-type-btn:hover {
+  @apply text-(--text-primary) bg-white/50;
+}
+
+.chart-toolbar-type-btn.active {
+  @apply text-(--text-primary) bg-white shadow-sm;
+}
+
+.chart-toolbar-options {
+  @apply flex items-center gap-1;
+}
+
+.chart-toolbar-opt-btn {
+  @apply flex items-center justify-center size-7 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer transition-all duration-100;
+}
+
+.chart-toolbar-opt-btn:hover {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+.chart-toolbar-opt-btn.active {
+  @apply bg-(--color-electric-violet-100) text-(--color-electric-violet);
+}
+
+/* Chart Data Editor (spreadsheet) */
+.chart-data-editor {
+  @apply p-3;
+}
+
+.chart-data-table-wrap {
+  @apply overflow-x-auto;
+}
+
+.chart-data-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.chart-data-th {
+  @apply px-2 py-1.5 text-left text-xs font-medium text-(--text-secondary) bg-black/3 border border-black/6;
+}
+
+.chart-data-th-label {
+  @apply min-w-28;
+}
+
+.chart-data-th-actions {
+  @apply w-8;
+}
+
+.chart-data-td {
+  @apply px-0 py-0 border border-black/6;
+}
+
+.chart-data-td-actions {
+  @apply w-8 text-center;
+}
+
+.chart-data-input {
+  @apply w-full px-2 py-1.5 bg-transparent border-none outline-none text-sm;
+}
+
+.chart-data-input-number {
+  @apply text-right;
+}
+
+.chart-data-series-header {
+  @apply flex items-center gap-1;
+}
+
+.chart-data-series-name {
+  @apply flex-1 bg-transparent border-none outline-none text-xs font-medium text-(--text-secondary);
+}
+
+.chart-data-remove-btn {
+  @apply flex items-center justify-center size-5 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer transition-all duration-100 text-sm;
+}
+
+.chart-data-remove-btn:hover {
+  @apply text-(--color-radical-red-500) bg-black/5;
+}
+
+.chart-data-actions {
+  @apply flex items-center gap-2 mt-2;
+}
+
+.chart-data-add-btn {
+  @apply px-2.5 py-1 text-xs font-medium text-(--color-electric-violet) bg-transparent border border-(--color-electric-violet-200) rounded-md cursor-pointer transition-all duration-100;
+}
+
+.chart-data-add-btn:hover {
+  @apply bg-(--color-electric-violet-50);
+}
+
+/* ============================================
+   COLUMNS BLOCK STYLES
+   ============================================ */
+
+.block-columns {
+  @apply my-2 relative;
+}
+
+.block-columns:focus {
+  @apply outline-none;
+}
+
+.columns-toolbar {
+  @apply relative flex items-center gap-1 mb-1;
+}
+
+.columns-layout-btn {
+  @apply flex items-center gap-1 px-2 py-1 text-xs text-(--text-secondary) bg-transparent border border-black/6 rounded-md cursor-pointer transition-all duration-100;
+}
+
+.columns-layout-btn:hover {
+  @apply bg-black/3 text-(--text-primary);
+}
+
+.columns-layout-popover {
+  @apply absolute top-full left-0 mt-1 z-50 bg-white border border-black/8 rounded-lg shadow-lg p-2;
+}
+
+.columns-grid {
+  @apply grid gap-3;
+}
+
+.column-slot {
+  @apply min-h-12 p-2 rounded-md border border-dashed border-black/8 bg-black/2 transition-colors duration-100;
+}
+
+.column-slot:focus-within {
+  @apply border-black/15 bg-transparent;
+}
+
+.column-block-wrapper {
+  @apply relative;
+}
+
+/* Column Layout Picker */
+.column-layout-picker {
+  @apply flex items-center gap-1.5;
+}
+
+.column-layout-option {
+  @apply p-1.5 rounded-md border border-black/8 bg-transparent cursor-pointer transition-all duration-100;
+}
+
+.column-layout-option:hover {
+  @apply border-black/20 bg-black/3;
+}
+
+.column-layout-option.active {
+  @apply border-(--color-electric-violet) bg-(--color-electric-violet-50);
+}
+
+.column-layout-preview {
+  @apply flex gap-0.5 h-6 w-12;
+}
+
+.column-layout-col {
+  @apply rounded-sm bg-black/15;
+}
+
+.column-layout-option.active .column-layout-col {
+  @apply bg-(--color-electric-violet-300);
+}
+
+/* ============================================
+   DATA SOURCE CONFIG STYLES
+   ============================================ */
+
+.chart-block-datasource {
+  @apply border-t border-black/6;
+}
+
+.datasource-config {
+  @apply p-3;
+}
+
+.datasource-config-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.datasource-close-btn {
+  @apply flex items-center justify-center size-6 text-(--text-secondary) bg-transparent border-none rounded cursor-pointer transition-all duration-100;
+}
+
+.datasource-close-btn:hover {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+.datasource-tabs {
+  @apply flex items-center gap-0.5 p-0.5 bg-black/4 rounded-md mb-3;
+}
+
+.datasource-tab {
+  @apply flex-1 px-2.5 py-1 text-xs font-medium text-(--text-secondary) rounded cursor-pointer transition-all duration-100 border-none bg-transparent text-center;
+}
+
+.datasource-tab:hover {
+  @apply text-(--text-primary) bg-white/50;
+}
+
+.datasource-tab.active {
+  @apply text-(--text-primary) bg-white shadow-sm;
+}
+
+.datasource-content {
+  @apply mb-3;
+}
+
+.datasource-form {
+  @apply flex flex-col gap-2.5;
+}
+
+.datasource-label {
+  @apply flex flex-col gap-1 text-xs font-medium text-(--text-secondary);
+}
+
+.datasource-input {
+  @apply w-full px-2.5 py-1.5 text-sm border border-black/10 rounded-md outline-none transition-all duration-100 bg-white;
+}
+
+.datasource-input:focus {
+  @apply border-(--color-electric-violet-300);
+}
+
+.datasource-select {
+  @apply w-full px-2.5 py-1.5 text-sm border border-black/10 rounded-md outline-none transition-all duration-100 bg-white;
+}
+
+.datasource-select:focus {
+  @apply border-(--color-electric-violet-300);
+}
+
+.datasource-actions {
+  @apply flex items-center justify-end gap-2;
+}
+
+.datasource-cancel-btn {
+  @apply px-3 py-1.5 text-xs font-medium text-(--text-secondary) bg-transparent border border-black/10 rounded-md cursor-pointer transition-all duration-100;
+}
+
+.datasource-cancel-btn:hover {
+  @apply bg-black/3 text-(--text-primary);
+}
+
+.datasource-apply-btn {
+  @apply px-3 py-1.5 text-xs font-medium text-white bg-(--color-electric-violet) border-none rounded-md cursor-pointer transition-all duration-100;
+}
+
+.datasource-apply-btn:hover {
+  @apply bg-(--color-electric-violet-600);
+}
+
+/* API Status Badge */
+.api-status {
+  @apply flex items-center gap-1.5 px-4 py-1 text-xs text-(--text-secondary);
+}
+
+.api-status-error {
+  @apply text-(--color-radical-red-500);
+}
+
+.api-status-dot {
+  @apply size-1.5 rounded-full;
+}
+
+.api-status-dot-loading {
+  @apply bg-(--color-selective-yellow) animate-pulse;
+}
+
+.api-status-dot-ok {
+  @apply bg-(--color-caribbean-green);
+}
+
+.api-status-dot-err {
+  @apply bg-(--color-radical-red-500);
+}
+
+.api-status-text {
+  @apply truncate max-w-60;
+}
+
+/* Chart DB Error */
+.chart-db-error {
+  @apply px-4 py-1 text-xs text-(--color-radical-red-500);
+}
+
+/* ============================================
+   DOCUMENTS PAGE STYLES
+   ============================================ */
+
+.documents-page {
+  @apply bg-(--background-color);
+}
+
+.documents-page-header {
+  @apply flex items-center justify-between px-8 h-16 border-b border-(--border-color)/50 shrink-0;
+}
+
+.documents-new-btn {
+  @apply flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-(--accent) rounded-lg transition-all duration-150;
+}
+
+.documents-new-btn:hover {
+  @apply opacity-90;
+}
+
+/* Documents grid */
+.documents-grid {
+  @apply grid gap-4 pt-6;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+/* Document card */
+.document-card {
+  @apply p-4 bg-white rounded-lg border border-(--border-color) hover:border-(--accent) hover:shadow-sm transition-all cursor-pointer;
+}
+
+/* Editor header (tab bar area) */
+.documents-editor-header {
+  @apply flex items-center gap-2 px-4 h-12 border-b border-(--border-color)/50 bg-(--background-color) shrink-0;
+}
+
+.documents-back-btn {
+  @apply flex items-center justify-center size-8 rounded-md text-(--text-secondary) hover:bg-black/5 transition-colors shrink-0;
+}
+
+/* Document tabs */
+.document-tabs {
+  @apply flex items-center gap-1 flex-1 min-w-0;
+}
+
+.document-tab {
+  @apply flex items-center gap-1.5 px-3 py-1.5 rounded-md text-(--text-secondary) hover:bg-black/5 transition-colors cursor-pointer shrink-0;
+}
+
+.document-tab.active {
+  @apply bg-black/5 text-(--text-primary);
+}
+
+.document-tab.split-active {
+  @apply ring-1 ring-(--color-electric-violet-300);
+}
+
+.document-tab.dragging {
+  @apply opacity-30;
+}
+
+.document-tab.drop-target {
+  @apply ring-2 ring-(--color-electric-violet-300) ring-inset;
+}
+
+.document-tab-close {
+  @apply flex items-center justify-center size-4 rounded-sm text-(--text-secondary) opacity-0 hover:opacity-100 hover:bg-black/10 transition-all;
+}
+
+.document-tab:hover .document-tab-close {
+  @apply opacity-60;
+}
+
+.document-tab-add {
+  @apply flex items-center justify-center size-7 rounded-md text-(--text-secondary) hover:bg-black/5 hover:text-(--text-primary) transition-colors cursor-pointer shrink-0;
+}
+
+.documents-browse-header {
+  @apply flex items-center justify-between px-8 pt-6 pb-2;
+}
+
+.document-split-btn {
+  @apply flex items-center justify-center size-8 rounded-md text-(--text-secondary) hover:bg-black/5 transition-colors shrink-0 ml-auto;
+}
+
+.document-split-btn.active {
+  @apply bg-(--color-electric-violet-100) text-(--color-electric-violet);
+}
+
+/* Split drop zone (shown during drag) */
+.document-split-drop {
+  @apply flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs text-(--text-secondary) border border-dashed border-(--border-color) transition-all shrink-0 ml-auto;
+}
+
+.document-split-drop.active {
+  @apply border-(--color-electric-violet) bg-(--color-electric-violet-100) text-(--color-electric-violet);
+}
+
+/* Tab context menu */
+.document-tab-context-menu {
+  @apply fixed z-50 min-w-44 bg-white rounded-lg shadow-lg border border-(--border-color)/50 py-1;
+  animation: ctx-menu-in 100ms ease-out;
+}
+
+@keyframes ctx-menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.document-tab-context-item {
+  @apply flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--text-primary) hover:bg-black/5 transition-colors text-left;
+}
+
+.document-tab-context-item.destructive {
+  @apply text-red-600 hover:bg-red-50;
+}
+
+/* Document editor */
+.document-editor {
+  @apply bg-(--background-color);
+}
+
+.document-editor-header {
+  @apply flex items-center justify-between px-6 py-3 border-b border-(--border-color)/30;
+}
+
+.document-editor-title {
+  @apply text-base font-medium text-(--text-primary) hover:bg-black/5 rounded px-2 py-1 transition-colors text-left truncate max-w-md;
+}
+
+.document-editor-title-input {
+  @apply px-2 py-1 text-base font-medium bg-white border border-(--border-color) rounded outline-none focus:border-(--accent) focus:ring-1 focus:ring-(--accent) max-w-md;
+}
+
+/* Split view */
+.split-view {
+  @apply bg-(--background-color);
+}
+
+.split-divider {
+  @apply w-1 cursor-col-resize flex items-center justify-center hover:bg-(--color-electric-violet-100) active:bg-(--color-electric-violet-200) transition-colors relative shrink-0;
+}
+
+.split-divider-line {
+  @apply w-px h-8 bg-(--border-color) rounded-full;
 }

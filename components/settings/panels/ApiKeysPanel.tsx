@@ -18,6 +18,7 @@ export default function ApiKeysPanel() {
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [tavilyApiKey, setTavilyApiKey] = useState("");
+  const [perplexityApiKey, setPerplexityApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
@@ -47,6 +48,12 @@ export default function ApiKeysPanel() {
         const tavily = await getSetting("tavily_api_key");
         if (tavily) {
           setTavilyApiKey(tavily);
+        }
+
+        // Load Perplexity API key
+        const perplexity = await getSetting("perplexity_api_key");
+        if (perplexity) {
+          setPerplexityApiKey(perplexity);
         }
       } catch (error) {
         console.error("Failed to load AI config:", error);
@@ -84,6 +91,11 @@ export default function ApiKeysPanel() {
       // Save Tavily API key if provided
       if (tavilyApiKey.trim()) {
         await setSetting("tavily_api_key", tavilyApiKey.trim());
+      }
+
+      // Save Perplexity API key if provided
+      if (perplexityApiKey.trim()) {
+        await setSetting("perplexity_api_key", perplexityApiKey.trim());
       }
 
       setSaveStatus("success");
@@ -198,13 +210,13 @@ export default function ApiKeysPanel() {
         {/* Divider */}
         <div className="border-t border-(--border-color) my-6" />
 
-        {/* Web Search Section */}
+        {/* Web Search & Research Section */}
         <div>
           <h4 className="text-sm font-medium text-(--text-primary) mb-3">
-            Web Search (Optional)
+            Web Search & Research (Optional)
           </h4>
           <p className="text-xs text-(--text-secondary) mb-3">
-            Enable web search capabilities for real-time information access.
+            Enable web search and deep research capabilities.
           </p>
         </div>
 
@@ -235,6 +247,35 @@ export default function ApiKeysPanel() {
               tavily.com
             </a>
             {" "}(1000 searches/month free)
+          </p>
+        </div>
+
+        {/* Perplexity API Key input */}
+        <div>
+          <label
+            htmlFor="perplexityApiKey"
+            className="block text-sm font-medium text-(--text-primary) mb-1.5"
+          >
+            Perplexity API Key
+          </label>
+          <input
+            id="perplexityApiKey"
+            type="password"
+            value={perplexityApiKey}
+            onChange={(e) => setPerplexityApiKey(e.target.value)}
+            placeholder="Enter your Perplexity API key (optional)"
+            className="w-full px-3 py-2 text-sm border border-(--border-color) rounded-md bg-(--background-color) text-(--text-primary) placeholder:text-(--text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--accent-color) focus:border-transparent"
+          />
+          <p className="mt-1.5 text-xs text-(--text-secondary)">
+            Enhanced research with Sonar — faster, synthesized results. Get your key from{" "}
+            <a
+              href="https://www.perplexity.ai/settings/api"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-(--accent-color) hover:underline"
+            >
+              perplexity.ai
+            </a>
           </p>
         </div>
 

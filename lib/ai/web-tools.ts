@@ -251,7 +251,7 @@ async function executeReadUrl(
       method: "GET",
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; Continuity/1.0; +https://continuity.app)",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       },
     });
 
@@ -374,6 +374,117 @@ async function executeGetCurrentTime(
       success: false,
     };
   }
+}
+
+// ============================================
+// DIRECT ACCESS FUNCTIONS (for research engine)
+// ============================================
+
+export interface TavilySearchResultDirect {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
+/**
+ * Search the web via Tavily and return structured results.
+ * Used by the research engine's search provider.
+ */
+export async function searchWebDirect(
+  query: string,
+  maxResults = 5
+): Promise<{ results: TavilySearchResultDirect[]; answer?: string }> {
+  let tavilyApiKey: string | null = null;
+  if (isTauriContext()) {
+    tavilyApiKey = await getSetting("tavily_api_key");
+  }
+
+  if (!tavilyApiKey) {
+    throw new Error("Tavily API key not configured");
+  }
+
+  const response = await tauriFetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: tavilyApiKey,
+      query,
+      max_results: maxResults,
+      include_answer: true,
+      search_depth: "basic",
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Tavily API error: ${response.status} - ${errorText}`);
+  }
+
+  const data: TavilyResponse = await response.json();
+  return {
+    results: data.results,
+    answer: data.answer,
+  };
+}
+
+/**
+ * Read and extract content from a URL.
+ * Used by the research engine's sub-agents.
+ */
+export async function readUrlDirect(
+  url: string
+): Promise<{ title: string; content: string }> {
+  const parsedUrl = new URL(url);
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("Only HTTP and HTTPS URLs are supported");
+  }
+
+  const response = await tauriFetch(url, {
+    method: "GET",
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const html = await response.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  const title = doc.querySelector("title")?.textContent?.trim() || "Untitled";
+
+  // Remove non-content elements
+  doc
+    .querySelectorAll(
+      "script, style, nav, header, footer, aside, iframe, noscript, svg, [role='navigation'], [role='banner'], [role='contentinfo']"
+    )
+    .forEach((el) => el.remove());
+
+  const mainContent =
+    doc.querySelector("main") ||
+    doc.querySelector("article") ||
+    doc.querySelector('[role="main"]') ||
+    doc.querySelector(".content") ||
+    doc.querySelector("#content") ||
+    doc.body;
+
+  if (!mainContent) {
+    throw new Error(`Could not extract content from: ${url}`);
+  }
+
+  let textContent = mainContent.textContent || "";
+  textContent = textContent
+    .replace(/\s+/g, " ")
+    .replace(/\n\s*\n/g, "\n\n")
+    .trim()
+    .slice(0, 4000); // Truncate for research (4K per source)
+
+  return { title, content: textContent };
 }
 
 // ============================================
