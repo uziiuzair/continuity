@@ -340,19 +340,29 @@ export async function deleteItem(id: number): Promise<void> {
 
 // Database introspection functions
 
-export async function listTables(): Promise<string[]> {
+export type DbSource = "app" | "memory";
+
+async function getDbForSource(source: DbSource) {
+  if (source === "memory") {
+    const Database = (await import("@tauri-apps/plugin-sql")).default;
+    return Database.load("sqlite:memory.db");
+  }
+  return getDb();
+}
+
+export async function listTables(source: DbSource = "app"): Promise<string[]> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
+  const db = await getDbForSource(source);
   const result = await db.select<{ name: string }[]>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
   );
   return result.map((row) => row.name);
 }
 
-export async function getTableSchema(tableName: string): Promise<ColumnInfo[]> {
+export async function getTableSchema(tableName: string, source: DbSource = "app"): Promise<ColumnInfo[]> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
@@ -362,7 +372,7 @@ export async function getTableSchema(tableName: string): Promise<ColumnInfo[]> {
     throw new Error("Invalid table name");
   }
 
-  const db = await getDb();
+  const db = await getDbForSource(source);
   const result = await db.select<ColumnInfo[]>(
     `PRAGMA table_info(${tableName})`,
   );
@@ -372,6 +382,7 @@ export async function getTableSchema(tableName: string): Promise<ColumnInfo[]> {
 export async function getTableRows(
   tableName: string,
   limit: number = 100,
+  source: DbSource = "app",
 ): Promise<Record<string, unknown>[]> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
@@ -382,14 +393,14 @@ export async function getTableRows(
     throw new Error("Invalid table name");
   }
 
-  const db = await getDb();
+  const db = await getDbForSource(source);
   const result = await db.select<Record<string, unknown>[]>(
     `SELECT * FROM ${tableName} LIMIT ${Math.min(limit, 1000)}`,
   );
   return result;
 }
 
-export async function getTableRowCount(tableName: string): Promise<number> {
+export async function getTableRowCount(tableName: string, source: DbSource = "app"): Promise<number> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
@@ -399,7 +410,7 @@ export async function getTableRowCount(tableName: string): Promise<number> {
     throw new Error("Invalid table name");
   }
 
-  const db = await getDb();
+  const db = await getDbForSource(source);
   const result = await db.select<{ count: number }[]>(
     `SELECT COUNT(*) as count FROM ${tableName}`,
   );

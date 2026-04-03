@@ -1,134 +1,136 @@
 # Active Context
 
-**Last Updated**: 2026-02-18 (MCP Apps Rendering Fix — v6 Protocol)
-**Current Session Focus**: Fixed MCP Apps rendering — rewrote sandbox proxy for @mcp-ui/client v6 protocol + promoted apps to message-level visibility
+**Last Updated**: 2026-04-03 (MCP Memory Server + Feature Trimming)
+**Current Session Focus**: Implemented MCP Memory Server, stripped Documents/Projects, added Memory Dashboard, fixed CORS issue
 
 ## Current State Summary
 
-Fixed 2 MCP Apps bugs: (1) sandbox proxy timeout caused by protocol mismatch — v6 library expects JSON-RPC `method: "ui/notifications/sandbox-proxy-ready"` but old proxy sent legacy `type: "ui-proxy-iframe-ready"`. Rewrote proxy with full v6 AppFrame support (JSON-RPC relay, `sandbox-resource-ready` handling, message buffering). (2) MCP App widgets buried in collapsed tool calls — moved rendering to message level in ChatMessage.tsx.
+Built the Continuity MCP Memory Server — a standalone Node.js process that any AI tool (Claude Code, Cursor, Windsurf) can write persistent memories to. The server stores memories in `~/.continuity/memory.db` with versioning, relationships, and project-scoped organization. The Tauri desktop app reads the same SQLite file to display a Memory Dashboard. Also stripped the old Documents and Projects features, and fixed a CORS bug in the Anthropic/OpenAI API clients.
 
 ---
 
 ## Recently Completed (This Session)
 
-### MCP Apps Rendering Fix (v6 Protocol Compatible)
+### Phase 1: MCP Memory Server
 
-#### Created/Modified Files (4)
-
-| File | Change |
-|------|--------|
-| `public/mcp-sandbox-proxy.html` | **NEW** — Complete rewrite for @mcp-ui/client v6. Three modes: (1) Legacy rawhtml mode for UIResourceRenderer, (2) Legacy URL mode, (3) **v6 AppFrame mode** (default) — sends JSON-RPC `method: "ui/notifications/sandbox-proxy-ready"`, handles `sandbox-resource-ready` to create inner iframe, relays JSON-RPC bidirectionally with message buffering. |
-| `components/chat/MCPAppRenderer.tsx` | Changed `SANDBOX_URL` from `https://proxy.mcpui.dev` to local `/mcp-sandbox-proxy.html`. |
-| `components/chat/ChatMessage.tsx` | Added lazy `MCPAppRenderer` import + `extractToolName`. Renders MCP App widgets at message level (after ToolCallsBlock, before prose) — always visible. |
-| `components/chat/ToolCallsBlock.tsx` | Removed `MCPAppRenderer` from `ToolCallRow`. Removed lazy import, Suspense. Simplified result display. |
-
-#### Root Cause Analysis
-- **Bug 1 (Timeout)**: `@mcp-ui/client` v6.1.0's `loadProxyIframe` checks `d.data.method === "ui/notifications/sandbox-proxy-ready"` (JSON-RPC format). The old proxy at `proxy.mcpui.dev` sends `{ type: "ui-proxy-iframe-ready" }` (legacy format). Protocol mismatch → 10s timeout.
-- **Bug 2 (Hidden UI)**: `hasMCPApp` evaluated before async HTML fetch completed → always `false` → tool calls collapsed by default → MCP App invisible.
-
-#### Key Discovery: v6 AppFrame Protocol
-1. `AppFrame` ALWAYS uses `loadProxyIframe()` — no srcDoc fallback (that's in HTMLResourceRenderer, a different component)
-2. After proxy signals ready, `AppBridge` connects via `PostMessageTransport` (JSON-RPC over postMessage)
-3. `sendSandboxResourceReady({html, csp})` sends HTML as JSON-RPC notification — proxy creates inner iframe
-4. All subsequent host ↔ guest communication is JSON-RPC relayed through proxy
-
----
-
-### Documents Page with Tabs & Split View
-
-#### New Files (8)
-
+#### New Files (13)
 | File | Purpose |
 |------|---------|
-| `app/documents/page.tsx` | Route entry point, wraps DocumentsPage in DocumentsProvider |
-| `providers/documents-provider.tsx` | Tab state, split view state, document list management |
-| `providers/canvas-instance-provider.tsx` | Per-tab canvas state (mirrors CanvasProvider with threadId prop) |
-| `components/documents/DocumentsPage.tsx` | Main page: grid view ↔ editor mode with keyboard shortcuts |
-| `components/documents/DocumentCard.tsx` | Grid card component with title, preview, relative time |
-| `components/documents/DocumentTabs.tsx` | Tab bar with close buttons, split toggle |
-| `components/documents/DocumentEditor.tsx` | Editor wrapper with CanvasInstanceProvider + editable title |
-| `components/documents/SplitView.tsx` | Horizontal split with draggable divider |
+| `server/package.json` | Server dependencies: @modelcontextprotocol/sdk, better-sqlite3, zod |
+| `server/tsconfig.json` | Node.js ESM TypeScript config |
+| `server/index.ts` | Entry point — stdio transport, tool registration |
+| `server/types.ts` | Server type definitions (Memory, Project, MemoryVersion, MemoryLink) |
+| `server/db/connection.ts` | better-sqlite3 connection to ~/.continuity/memory.db with WAL mode |
+| `server/db/schema.ts` | DDL for projects, memories, memory_versions, memory_links tables |
+| `server/db/memories.ts` | Memory CRUD with version tracking and upsert |
+| `server/db/projects.ts` | Project CRUD |
+| `server/db/relationships.ts` | Memory link operations |
+| `server/db/versions.ts` | Version history queries |
+| `server/db/search.ts` | LIKE-based search across key, content, tags |
+| `server/tools/memory-tools.ts` | 5 tools: memory_write, memory_read, memory_update, memory_delete, memory_bulk_import |
+| `server/tools/project-tools.ts` | 3 tools: project_create, project_list, project_get |
+| `server/tools/search-tools.ts` | 1 tool: memory_search |
+| `server/tools/relationship-tools.ts` | 2 tools: memory_link, memory_links_get |
+| `server/tools/lifecycle-tools.ts` | 1 tool: memory_version_history |
 
-#### Modified Files (5)
+### Phase 3: Feature Trimming
 
+#### Deleted Files (13)
+| File | Reason |
+|------|--------|
+| `app/documents/page.tsx` | Documents feature removed |
+| `app/projects/page.tsx` | Projects feature removed |
+| `components/documents/*` (5 files) | DocumentsPage, DocumentEditor, DocumentCard, SplitView, DocumentTabs |
+| `components/projects/*` (6 files) | ProjectsPage, ProjectDetailView, ProjectCard, etc. |
+| `providers/documents-provider.tsx` | Documents state removed |
+| `providers/projects-provider.tsx` | Projects state removed |
+| `lib/db/projects.ts` | Old projects DB module replaced by MCP server |
+| `types/project.ts` | Old project types |
+
+#### Modified Files
 | File | Change |
 |------|--------|
-| `lib/db/threads.ts` | Added `getAllDocuments()` (query threads with canvas content), `createStandaloneDocument()`, `DocumentInfo` type |
-| `components/canvas/CustomEditor.tsx` | Added optional `threadId` and `canvasOverride` props, replaced `activeThreadId` with `effectiveThreadId` |
-| `components/layout/Sidebar.tsx` | Added "Documents" nav item between Projects and Threads |
-| `components/layout/AppShell.tsx` | Hide Canvas panel on `/documents` route |
-| `app/globals.css` | Added document page styles (grid, cards, tabs, editor, split view, divider) |
+| `app/layout.tsx` | Removed ProjectsProvider, added MemoriesProvider |
+| `providers/chat-provider.tsx` | Removed project imports and project-specific prompt injection |
+| `components/layout/Sidebar.tsx` | Replaced Documents+Projects nav with Memories nav |
+| `tsconfig.json` | Excluded `server/` directory |
 
-#### Key Architecture Decisions
-1. **CanvasInstanceProvider** — Each tab gets its own provider with independent load/save/debounce, separate from the global CanvasProvider
-2. **canvasOverride prop** — CustomEditor accepts optional canvas state override, avoiding context shadowing issues
-3. **Standalone documents** — Just threads with initialized canvas content, no schema changes
-4. **Split view** — Two independent DocumentEditor instances with draggable divider
+### Phase 4: Memory Dashboard
+
+#### New Files (7)
+| File | Purpose |
+|------|---------|
+| `app/memories/page.tsx` | Route for memory dashboard |
+| `providers/memories-provider.tsx` | Reads from ~/.continuity/memory.db via Tauri SQL plugin |
+| `components/memories/MemoriesPage.tsx` | Main page: tabs for Global / By Project |
+| `components/memories/MemoryList.tsx` | Filterable/searchable list with type chips |
+| `components/memories/MemoryCard.tsx` | Card: key, content snippet, type badge, tags, version |
+| `components/memories/MemoryDetail.tsx` | Full view: content, versions, linked memories |
+| `components/memories/VersionTimeline.tsx` | Version history timeline display |
+| `components/memories/ProjectMemories.tsx` | Project-scoped memory grouping |
+
+### Bug Fix: CORS in API Clients
+
+#### Modified Files
+| File | Change |
+|------|--------|
+| `lib/ai/anthropic.ts` | Replaced browser `fetch` with Tauri's `tauriFetch` to bypass CORS |
+| `lib/ai/openai.ts` | Same CORS fix |
 
 ---
 
-## Verification Checklist
+## Architecture Decisions
 
-### Documents Page
-1. ✅ **Build passes**: `npx next build` with zero errors
-2. ⬜ Navigate to `/documents` via sidebar → see grid of all documents
-3. ⬜ Click "New Document" → creates doc, opens in fullscreen editor
-4. ⬜ Type in editor → content auto-saves (debounced 1s)
-5. ⬜ Close tab → return to grid → re-open doc → content persisted
-6. ⬜ Open multiple documents → tabs appear, click to switch
-7. ⬜ Split view → two editors side-by-side, each saves independently
-8. ⬜ Drag split divider → resize panes
-9. ⬜ `Cmd+W` closes active tab, `Cmd+Shift+]` switches tabs
-10. ⬜ Navigate away from `/documents` → sidebar canvas reappears
+1. **Separate server process** — MCP server is a standalone Node.js process, not embedded in Tauri. This lets any AI tool connect via stdio independently.
+2. **Shared SQLite with WAL** — Server writes, app reads. WAL mode allows concurrent access.
+3. **Soft deletes** — Memories are archived, never hard-deleted. Version history is append-only.
+4. **Upsert on key+scope+project** — Writing a memory with an existing key auto-versions it.
+5. **Tauri HTTP for API calls** — Browser fetch blocked by CORS; Tauri's Rust-side HTTP client bypasses it.
 
 ---
 
 ## Next Steps
 
-### Testing
-- Test document creation and editing in Tauri app
-- Verify split view with two documents editing simultaneously
-- Confirm keyboard shortcuts work correctly
-- Test that existing sidebar Canvas still works on other pages
+### Phase 2: Test with Claude Code
+- Add to `.mcp.json`: `{ "mcpServers": { "ooozzy": { "command": "npx", "args": ["tsx", "server/index.ts"] } } }`
+- Test each tool: write → read → update → search → link → version history
 
-### Future Enhancements
-- Document search/filter in grid view
-- Document templates
-- Recent documents in sidebar
+### Phase 5: Polish
+- FTS5 for better search
+- HTTP transport for non-stdio clients
+- Auto-refresh via filesystem watcher
+- npm publish as `npx ooozzy-memory`
+
+### Verification Checklist
+1. ✅ Server starts: `npx tsx server/index.ts` runs without errors
+2. ✅ Database created at `~/.continuity/memory.db`
+3. ✅ 12 tools registered
+4. ✅ TypeScript compilation clean (both app and server)
+5. ✅ Documents and Projects removed cleanly
+6. ✅ Sidebar updated with Memories nav
+7. ⬜ Claude Code sees tools after adding to .mcp.json
+8. ⬜ Round-trip: write → read → update → search
+9. ⬜ Memory Dashboard shows data in Tauri app
+10. ⬜ Chat, Journal, Briefing, Vault all still work
 
 ---
 
 ## Previous Sessions
 
+### Session: Obsidian Vault Integration (AI-Mediated)
+- Implemented vault integration — AI reads/writes to Obsidian vault with user approval
+
+### Session: MCP Apps Rendering Fix (v6 Protocol)
+- Fixed sandbox proxy timeout and MCP App visibility issues
+
+### Session: Documents Page with Tabs & Split View
+- Implemented grid view, tab-based editing, split view, keyboard shortcuts
+
 ### Session: Canvas Columns, Charts & Live Data
-- Implemented chart blocks (5 types via Recharts), column layouts (6 options), live data (API polling + DB linking)
-
-### Session: MCP Apps Integration
-- Implemented MCP Apps interactive UI rendering in chat via @mcp-ui/client AppRenderer
-
-### Session: Tool Call Display in Chat Messages
-- Implemented collapsible tool call display for assistant messages
-
-### Session: MCP Client Support
-- Implemented full MCP client support with stdio/HTTP transports
-
-### Session: Multi-Step Deep Research Feature
-- Implemented deep research with parallel sub-agents, Perplexity integration
-
-### Session: Custom Editor Replication Guide
-- Created comprehensive replication guide (1835 lines) for the custom block editor
-
-### Session: Canvas AI Edit Feature
-- Added AI sparkle button and "AI Edit" in slash menu
-
-### Session: Canvas Text Formatting Toolbar
-- Implemented floating formatting toolbar with Bold/Italic/Underline/Strikethrough/Code
+- Implemented chart blocks, column layouts, live data
 
 ### Session: Projects Feature
 - Implemented project organization with custom AI prompts
 
 ### Session: Daily Journal Feature
 - Implemented weekly calendar strip, streak tracking, bi-directional links
-
-### Session: Block Type Mismatch Fix & Code Block Support
-- Fixed AI-canvas block type mismatch, added code block support

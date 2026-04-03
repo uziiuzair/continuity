@@ -268,6 +268,9 @@ export default function CustomEditor({ threadId: propThreadId, canvasOverride }:
 
     if (!effectiveThreadId) return;
 
+    // Don't create empty blocks while content is still loading from DB
+    if (!content && isLoading) return;
+
     // Compare incoming content to detect external changes
     const incomingContentJson = content ? JSON.stringify(content) : null;
 
@@ -296,7 +299,7 @@ export default function CustomEditor({ threadId: propThreadId, canvasOverride }:
       setBlocks([emptyBlock]);
       // Let the sync effect handle updating lastSentContent
     }
-  }, [effectiveThreadId, content]);
+  }, [effectiveThreadId, content, isLoading]);
 
   // Sync blocks to provider (with duplicate prevention)
   useEffect(() => {

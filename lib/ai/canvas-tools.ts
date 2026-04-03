@@ -422,41 +422,35 @@ function formatCanvasForAI(content: CanvasContent): string {
 // ============================================
 
 export const CANVAS_TOOLS_SYSTEM_PROMPT = `
-You have access to a canvas - a rich document that exists alongside this chat.
-The canvas is for persistent content that the user explicitly requests.
+## Canvas (Side Document)
 
-## Canvas Tools:
+You have tools to read and modify a persistent document alongside this chat.
 
-1. **read_canvas** - See what's currently in the canvas. Use this before updating existing content.
-2. **add_to_canvas** - Add new blocks (paragraphs, headings, checklists, bullet points, etc.)
-3. **update_block** - Update an existing block by ID. Use this to edit text or mark checkboxes as completed.
-4. **delete_block** - Remove a block by ID.
+### CRITICAL: Canvas is RARELY used
 
-## When to use the canvas:
+Do NOT use canvas tools unless the user EXPLICITLY asks. Explicit requests look like:
+- "Add this to the canvas" / "Put this in the canvas"
+- "Create a checklist/list in the canvas"
+- "Write this down for me" / "Save this to my notes"
+- "Document this in the canvas"
 
-ONLY use canvas tools when the user explicitly asks for content to be added:
-- "Add this to my notes"
-- "Create a checklist for..."
-- "Put this summary in the canvas"
-- "Write this down for me"
+### NEVER use canvas for:
+- Answering questions — respond in chat
+- Sharing code examples — use markdown code blocks in chat
+- Summarizing conversations — respond in chat
+- Creating structure the user didn't ask for
+- Lists, plans, or outlines UNLESS the user specifically says "canvas" or "write down"
+- Organizing thoughts proactively
 
-## When NOT to use the canvas:
+**If you're unsure, respond in chat. Do NOT default to canvas.**
 
-- Do NOT auto-create sections or structure
-- Do NOT render your internal state (tasks, decisions, blockers) to the canvas
-- Do NOT initialize workspaces or create predefined layouts
-- The canvas starts empty and stays empty unless the user asks for content
+### Tool reference (when you do use canvas):
+- read_canvas — Check current content before modifying
+- add_to_canvas — Add blocks (paragraph, heading, listItem, code)
+- update_block — Modify a block by ID
+- delete_block — Remove a block by ID
 
-## Important guidelines:
-
-- ALWAYS call read_canvas first if you need to modify existing content
-- Use block IDs from read_canvas when calling update_block or delete_block
-- To mark a checkbox complete, use update_block with props: {checked: true}
-- The canvas persists - content stays until explicitly changed or deleted
-- Keep content simple - just what the user asked for, no extra structure
-
-## Block types:
-
+### Block types:
 - paragraph: Regular text
 - heading: Section header (props: {level: 1|2|3})
 - listItem: List item. MUST include props.listType:
@@ -465,3 +459,42 @@ ONLY use canvas tools when the user explicitly asks for content to be added:
   - Checkbox/todo: {listType: "todo", checked: boolean}
 - code: Code block (props: {language: string}, e.g., "javascript", "python", "sql")
 `.trim();
+
+/**
+ * Determine whether canvas tools should be included in the AI request.
+ * Returns true only when the user has signaled intent to use the canvas.
+ */
+export function shouldIncludeCanvasTools(
+  userMessage: string,
+  canvasIsOpen: boolean,
+  canvasHasContent: boolean
+): boolean {
+  // Always include if canvas is already visible (user may want to modify)
+  if (canvasIsOpen) return true;
+  // Always include if canvas already has content
+  if (canvasHasContent) return true;
+  // Check for explicit canvas intent keywords
+  const keywords = [
+    "canvas",
+    "add to canvas",
+    "put in canvas",
+    "write down",
+    "write this down",
+    "jot this down",
+    "create a list",
+    "make a list",
+    "checklist",
+    "todo list",
+    "add notes",
+    "create notes",
+    "put in my notes",
+    "save this",
+    "document this",
+    "keep this",
+    "bullet points",
+    "numbered list",
+    "task list",
+  ];
+  const lower = userMessage.toLowerCase();
+  return keywords.some((kw) => lower.includes(kw));
+}

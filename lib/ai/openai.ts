@@ -6,6 +6,7 @@ import {
   ChatOptions,
   AIToolCall,
 } from "./types";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 interface OpenAIMessage {
   role: "user" | "assistant" | "system" | "tool";
@@ -125,7 +126,7 @@ export class OpenAIClient implements AIClient {
       }
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await tauriFetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,7 +193,7 @@ export class OpenAIClient implements AIClient {
       }
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await tauriFetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -300,6 +301,9 @@ export class OpenAIClient implements AIClient {
 }
 
 export const OPENAI_MODELS = [
+  { id: "gpt-5.4-pro", name: "GPT-5.4 Pro" },
+  { id: "gpt-5.4", name: "GPT-5.4" },
+  { id: "gpt-5.4-mini", name: "GPT-5.4 Mini" },
   { id: "gpt-5.2-pro", name: "GPT-5.2 Pro" },
   { id: "gpt-5.2", name: "GPT-5.2" },
   { id: "gpt-5.1", name: "GPT-5.1" },

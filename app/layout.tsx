@@ -3,7 +3,6 @@ import "@blocknote/mantine/style.css";
 import "./globals.css";
 import { DatabaseProvider } from "@/providers/database-provider";
 import { ThreadsProvider } from "@/providers/threads-provider";
-import { ProjectsProvider } from "@/providers/projects-provider";
 import { CanvasProvider } from "@/providers/canvas-provider";
 import { ChatProvider } from "@/providers/chat-provider";
 import { MCPProvider } from "@/providers/mcp-provider";
@@ -11,6 +10,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { SubscriptionProvider } from "@/providers/subscription-provider";
 import { ViewProvider } from "@/providers/view-provider";
 import { DeveloperModeProvider } from "@/providers/developer-provider";
+import { MemoriesProvider } from "@/providers/memories-provider";
 
 export default function RootLayout({
   children,
@@ -26,15 +26,15 @@ export default function RootLayout({
               <AuthProvider>
                 <SubscriptionProvider>
                   <ThreadsProvider>
-                    <ProjectsProvider>
-                      <CanvasProvider>
-                        <MCPProvider>
-                          <ChatProvider>
+                    <CanvasProvider>
+                      <MCPProvider>
+                        <ChatProvider>
+                          <MemoriesProvider>
                             <AppShell>{children}</AppShell>
-                          </ChatProvider>
-                        </MCPProvider>
-                      </CanvasProvider>
-                    </ProjectsProvider>
+                          </MemoriesProvider>
+                        </ChatProvider>
+                      </MCPProvider>
+                    </CanvasProvider>
                   </ThreadsProvider>
                 </SubscriptionProvider>
               </AuthProvider>

@@ -6,6 +6,7 @@ import {
   ChatOptions,
   AIToolCall,
 } from "./types";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 interface AnthropicContentBlock {
   type: "text" | "tool_use" | "tool_result";
@@ -156,7 +157,7 @@ export class AnthropicClient implements AIClient {
       body.tools = tools;
     }
 
-    const response = await fetch(`${this.baseUrl}/messages`, {
+    const response = await tauriFetch(`${this.baseUrl}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -228,7 +229,7 @@ export class AnthropicClient implements AIClient {
       body.tools = tools;
     }
 
-    const response = await fetch(`${this.baseUrl}/messages`, {
+    const response = await tauriFetch(`${this.baseUrl}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

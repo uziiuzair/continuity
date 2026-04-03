@@ -62,7 +62,7 @@ interface Props {
 
 export const CanvasInstanceProvider = ({ threadId, children }: Props) => {
   const [content, setContent] = useState<CanvasContent | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [editorApi, setEditorApi] = useState<EditorAPI | null>(null);

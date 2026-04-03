@@ -10,9 +10,7 @@ import {
   useRef,
 } from "react";
 import { useThreads } from "./threads-provider";
-import { useProjects } from "./projects-provider";
 import { useCanvas } from "./canvas-provider";
-import { getProject } from "@/lib/db/projects";
 import { isTauriContext } from "@/lib/db";
 import { createMessage, getMessagesByThread } from "@/lib/db/messages";
 import {
@@ -27,6 +25,7 @@ import {
   CANVAS_TOOLS,
   CANVAS_TOOLS_SYSTEM_PROMPT,
   executeCanvasTool,
+  shouldIncludeCanvasTools,
   ToolCall,
   ToolDefinition,
 } from "@/lib/ai/canvas-tools";
@@ -74,6 +73,13 @@ import {
   getServerIdFromQualifiedName,
   fetchMCPAppHtml,
 } from "@/lib/ai/mcp-tools";
+import {
+  OBSIDIAN_TOOLS,
+  OBSIDIAN_TOOL_NAMES,
+  executeObsidianTool,
+  getObsidianToolsSystemPrompt,
+} from "@/lib/ai/obsidian-tools";
+import { isVaultConnected } from "@/lib/vault/config";
 import { MCPManager } from "@/lib/mcp/manager";
 import { runResearch } from "@/lib/ai/research-engine";
 import { getSearchProvider } from "@/lib/ai/search-provider";
@@ -109,6 +115,11 @@ function getActivityStateForTool(toolName: string): ActivityState {
     return 'searching';
   }
 
+  // Obsidian vault operations
+  if (OBSIDIAN_TOOL_NAMES.includes(toolName)) {
+    return toolName === 'write_to_obsidian' ? 'saving' : 'searching';
+  }
+
   // Saving/Memory operations
   if (['remember_information', 'forget_information'].includes(toolName)) {
     return 'saving';
@@ -136,9 +147,8 @@ function getActivityStateForTool(toolName: string): ActivityState {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Static built-in tools
-const BUILTIN_TOOLS: ToolDefinition[] = [
-  ...CANVAS_TOOLS,
+// Non-canvas built-in tools (always included)
+const BASE_TOOLS: ToolDefinition[] = [
   ...WEB_TOOLS,
   ...MEMORY_TOOLS,
   ...ARTIFACT_TOOLS,
@@ -150,14 +160,24 @@ const BUILTIN_TOOLS: ToolDefinition[] = [
 // Canvas tool names for checking if we need to refresh
 const CANVAS_TOOL_NAMES = CANVAS_TOOLS.map((t) => t.name);
 
-// Get all tools including dynamic MCP tools
-function getAllTools(): ToolDefinition[] {
-  return [...BUILTIN_TOOLS, ...getMCPToolDefinitions()];
+// Track whether obsidian vault is connected (cached per session, refreshed on prompt rebuild)
+let _vaultConnected = false;
+
+// Get all tools including dynamic MCP tools, conditionally including canvas and obsidian
+function getAllTools(includeCanvas: boolean): ToolDefinition[] {
+  const tools = includeCanvas
+    ? [...CANVAS_TOOLS, ...BASE_TOOLS]
+    : [...BASE_TOOLS];
+  // Include Obsidian tools only when vault is connected
+  if (_vaultConnected) {
+    tools.push(...OBSIDIAN_TOOLS);
+  }
+  return [...tools, ...getMCPToolDefinitions()];
 }
 
 // Convert our tool definitions to AI SDK format
-function getAllToolsForAI(): AITool[] {
-  return getAllTools().map((tool) => ({
+function getAllToolsForAI(includeCanvas: boolean): AITool[] {
+  return getAllTools(includeCanvas).map((tool) => ({
     type: "function" as const,
     function: {
       name: tool.name,
@@ -222,13 +242,22 @@ Work unfolds over time. Remember what was discussed, what was decided, what ques
 
 The goal is steady, clear progress. Not performance.`;
 
-// Build system prompt dynamically (includes MCP tools when available)
-function buildSystemPrompt(): string {
+// Build system prompt dynamically (includes MCP tools and Obsidian when available)
+async function buildSystemPrompt(includeCanvas: boolean): Promise<string> {
+  // Check vault connection status and cache it for tool inclusion
+  if (isTauriContext()) {
+    try {
+      _vaultConnected = await isVaultConnected();
+    } catch {
+      _vaultConnected = false;
+    }
+  }
+
   const mcpPrompt = getMCPToolsSystemPrompt();
   const parts = [
     PERSONALITY_SYSTEM_PROMPT,
     WORKSPACE_AGENT_PROMPT,
-    CANVAS_TOOLS_SYSTEM_PROMPT,
+    ...(includeCanvas ? [CANVAS_TOOLS_SYSTEM_PROMPT] : []),
     WEB_TOOLS_SYSTEM_PROMPT,
     MEMORY_TOOLS_SYSTEM_PROMPT,
     ARTIFACT_TOOLS_SYSTEM_PROMPT,
@@ -239,6 +268,19 @@ function buildSystemPrompt(): string {
   if (mcpPrompt) {
     parts.push(mcpPrompt);
   }
+
+  // Add Obsidian vault context if connected
+  if (_vaultConnected) {
+    try {
+      const obsidianPrompt = await getObsidianToolsSystemPrompt();
+      if (obsidianPrompt) {
+        parts.push(obsidianPrompt);
+      }
+    } catch {
+      // Non-critical — vault prompt can fail silently
+    }
+  }
+
   return parts.join("\n\n").trim();
 }
 
@@ -265,13 +307,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const { activeThreadId, createThread, setActiveThread, touchThread } =
     useThreads();
-  const { activeProjectId } = useProjects();
-
-  // Get refresh function from canvas provider (to update UI after DB writes)
-  const { refreshContent } = useCanvas();
-
-  // Track whether canvas system prompt has been added
-  const canvasSystemPromptAdded = useRef(false);
+  // Get refresh function and content from canvas provider
+  const { refreshContent, content: canvasContent } = useCanvas();
 
   // Research cancellation ref
   const researchCancelledRef = useRef(false);
@@ -296,17 +333,13 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
     }
   }, [activeThreadId]);
 
-  // Reset system prompt when project changes so new project's custom prompt is applied
-  useEffect(() => {
-    canvasSystemPromptAdded.current = false;
-  }, [activeProjectId]);
-
-  // Subscribe to MCP tool changes — force system prompt rebuild when tools change
+  // Subscribe to MCP tool changes (no-op needed now since system prompt is rebuilt each message)
+  // Keeping the subscription so MCP tool definitions are always current
   useEffect(() => {
     if (!isTauriContext()) return;
     const manager = MCPManager.getInstance();
     const unsubscribe = manager.subscribe(() => {
-      canvasSystemPromptAdded.current = false;
+      // MCP tools are fetched dynamically in getAllTools(), no action needed
     });
     return unsubscribe;
   }, []);
@@ -474,6 +507,8 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           result = await executeDatabaseTool(toolCall, threadId);
         } else if (WORK_STATE_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeWorkStateTool(toolCall, threadId);
+        } else if (OBSIDIAN_TOOL_NAMES.includes(tc.function.name)) {
+          result = await executeObsidianTool(toolCall);
         } else if (getMCPToolNames().includes(tc.function.name)) {
           result = await executeMCPTool(toolCall);
         } else {
@@ -582,38 +617,21 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           throw new Error("Failed to initialize AI client");
         }
 
+        // Determine whether canvas tools should be included for this message
+        const hasCanvasContent = canvasContent !== null && Array.isArray(canvasContent) && canvasContent.length > 0;
+        const includeCanvas = shouldIncludeCanvasTools(trimmedContent, canvasIsOpen, hasCanvasContent);
+
         // Build messages for AI (include history)
         const aiMessages: AIChatMessage[] = [];
 
-        // Build system prompt with optional project instructions
-        if (!canvasSystemPromptAdded.current) {
-          let systemPrompt = buildSystemPrompt();
-
-          // Add project-specific instructions if in a project context
-          if (activeProjectId && isTauriContext()) {
-            try {
-              const project = await getProject(activeProjectId);
-              if (project?.customPrompt) {
-                systemPrompt = `${systemPrompt}
-
-## Project Instructions
-
-You are currently working within the "${project.name}" project. The user has provided the following custom instructions for this project:
-
-${project.customPrompt}
-
-Apply these instructions to all responses within this project context.`;
-              }
-            } catch (error) {
-              console.error("Failed to load project for custom prompt:", error);
-            }
-          }
+        // Always build and include system prompt (varies per message based on canvas inclusion)
+        {
+          let systemPrompt = await buildSystemPrompt(includeCanvas);
 
           aiMessages.push({
             role: "system",
             content: systemPrompt,
           });
-          canvasSystemPromptAdded.current = true;
         }
 
         // Add conversation history
@@ -643,9 +661,9 @@ Apply these instructions to all responses within this project context.`;
         setMessages((prev) => [...prev, assistantMessage]);
         setStreamingMessageId(assistantMessageId);
 
-        // Prepare chat options with all tools
+        // Prepare chat options with tools (canvas conditionally included)
         const chatOptions: ChatOptions = {
-          tools: getAllToolsForAI(),
+          tools: getAllToolsForAI(includeCanvas),
           toolChoice: "auto",
         };
 
@@ -907,6 +925,7 @@ Apply these instructions to all responses within this project context.`;
       messages,
       touchThread,
       canvasIsOpen,
+      canvasContent,
       executeToolCalls,
     ]
   );
@@ -935,7 +954,6 @@ Apply these instructions to all responses within this project context.`;
     setMessages([]);
     setError(undefined);
     setActiveThread(null);
-    canvasSystemPromptAdded.current = false;
     setResearchState(INITIAL_RESEARCH_STATE);
   }, [setActiveThread]);
 

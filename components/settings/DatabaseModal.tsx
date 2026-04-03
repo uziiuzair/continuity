@@ -9,6 +9,7 @@ import {
   getTableRows,
   getTableRowCount,
   ColumnInfo,
+  DbSource,
 } from "@/lib/db-service";
 import { isTauriContext } from "@/lib/db";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export default function DatabaseModal({ isOpen, onClose }: DatabaseModalProps) {
   const [tableData, setTableData] = useState<TableData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dbSource, setDbSource] = useState<DbSource>("app");
 
   const loadTables = useCallback(async () => {
     if (!isTauriContext()) {
@@ -45,23 +47,25 @@ export default function DatabaseModal({ isOpen, onClose }: DatabaseModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const tableNames = await listTables();
+      const tableNames = await listTables(dbSource);
       const tablesWithCounts = await Promise.all(
         tableNames.map(async (name) => ({
           name,
-          rowCount: await getTableRowCount(name),
+          rowCount: await getTableRowCount(name, dbSource),
         })),
       );
       setTables(tablesWithCounts);
-      if (tablesWithCounts.length > 0 && !selectedTable) {
+      if (tablesWithCounts.length > 0) {
         setSelectedTable(tablesWithCounts[0].name);
+      } else {
+        setSelectedTable(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tables");
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTable]);
+  }, [dbSource]);
 
   const loadTableData = useCallback(async (tableName: string) => {
     if (!isTauriContext()) return;
@@ -70,9 +74,9 @@ export default function DatabaseModal({ isOpen, onClose }: DatabaseModalProps) {
     setError(null);
     try {
       const [columns, rows, rowCount] = await Promise.all([
-        getTableSchema(tableName),
-        getTableRows(tableName, 100),
-        getTableRowCount(tableName),
+        getTableSchema(tableName, dbSource),
+        getTableRows(tableName, 100, dbSource),
+        getTableRowCount(tableName, dbSource),
       ]);
       setTableData({ columns, rows, rowCount });
     } catch (err) {
@@ -83,7 +87,7 @@ export default function DatabaseModal({ isOpen, onClose }: DatabaseModalProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [dbSource]);
 
   useEffect(() => {
     if (isOpen) {
@@ -153,6 +157,31 @@ export default function DatabaseModal({ isOpen, onClose }: DatabaseModalProps) {
                       <span className="text-sm font-medium text-(--text-primary)">
                         Database Browser
                       </span>
+                    </div>
+                    {/* DB source switcher */}
+                    <div className="flex items-center bg-black/5 rounded-md p-0.5">
+                      <button
+                        onClick={() => setDbSource("app")}
+                        className={cn(
+                          "px-2 py-1 text-xs rounded transition-colors",
+                          dbSource === "app"
+                            ? "bg-white shadow-sm text-(--text-primary) font-medium"
+                            : "text-(--text-secondary) hover:text-(--text-primary)"
+                        )}
+                      >
+                        App DB
+                      </button>
+                      <button
+                        onClick={() => setDbSource("memory")}
+                        className={cn(
+                          "px-2 py-1 text-xs rounded transition-colors",
+                          dbSource === "memory"
+                            ? "bg-white shadow-sm text-(--text-primary) font-medium"
+                            : "text-(--text-secondary) hover:text-(--text-primary)"
+                        )}
+                      >
+                        Memory DB
+                      </button>
                     </div>
                     {selectedTable && (
                       <span className="text-xs text-(--text-secondary) px-2 py-0.5 bg-black/5 rounded">
