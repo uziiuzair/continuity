@@ -1,0 +1,21 @@
+{
+  "name": "continuity-plugin-host",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.9.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

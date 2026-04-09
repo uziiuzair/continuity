@@ -1,0 +1,72 @@
+{
+  "id": "continuity-threads-engagement",
+  "name": "Threads Engagement",
+  "version": "0.1.0",
+  "description": "Find and engage with relevant Threads posts using AI-powered filtering and reply drafting",
+  "author": "Continuity Team",
+  "homepage": "https://github.com/continuity/threads-engagement",
+  "license": "MIT",
+
+  "runtime": "node",
+  "entry": "dist/index.js",
+
+  "capabilities": [
+    "db:read",
+    "ui:sidebar",
+    "ui:notifications",
+    "chat:tools",
+    "chat:prompts"
+  ],
+
+  "settings": [
+    {
+      "key": "threads_access_token",
+      "type": "secret",
+      "label": "Threads Access Token",
+      "description": "Long-lived Threads API access token (60 days). Get one from Meta Developer Console.",
+      "required": true
+    },
+    {
+      "key": "threads_user_id",
+      "type": "string",
+      "label": "Threads User ID",
+      "description": "Your Threads numeric user ID (returned during OAuth flow)",
+      "required": true
+    },
+    {
+      "key": "search_keywords",
+      "type": "string",
+      "label": "Search Keywords",
+      "description": "Comma-separated topics to search for (e.g., 'AI agents, developer tools, startup growth')",
+      "required": true
+    },
+    {
+      "key": "persona_description",
+      "type": "string",
+      "label": "Persona Description",
+      "description": "Describe your voice and brand for AI filtering and reply drafting (e.g., 'Founder of an AI dev tools startup. Friendly, technical, insightful.')",
+      "required": true
+    },
+    {
+      "key": "relevance_threshold",
+      "type": "number",
+      "label": "Relevance Threshold (1-10)",
+      "description": "Minimum AI relevance score to include a post (default: 6)",
+      "default": 6
+    },
+    {
+      "key": "cron_interval_hours",
+      "type": "number",
+      "label": "Search Interval (hours)",
+      "description": "How often to search Threads for new posts (default: 12)",
+      "default": 12
+    },
+    {
+      "key": "max_searches_per_run",
+      "type": "number",
+      "label": "Max Searches Per Run",
+      "description": "Number of keyword searches per cron run (default: 5). Budget: 500/week total.",
+      "default": 5
+    }
+  ]
+}

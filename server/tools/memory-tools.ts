@@ -4,6 +4,7 @@ import { writeMemory, readMemory, updateMemory, deleteMemory, bulkImportMemories
 
 const MemoryTypeEnum = z.enum(["decision", "preference", "context", "constraint", "pattern"]);
 const MemoryScopeEnum = z.enum(["global", "project"]);
+const MemorySourceEnum = z.enum(["user", "ai", "system"]);
 
 export function registerMemoryTools(server: McpServer): void {
   server.tool(
@@ -17,10 +18,11 @@ export function registerMemoryTools(server: McpServer): void {
       project_id: z.string().optional().describe("Project ID if scope is 'project'"),
       tags: z.array(z.string()).optional().describe("Tags for categorization, e.g. ['typescript', 'tooling']"),
       metadata: z.record(z.unknown()).optional().describe("Additional structured metadata"),
+      source: MemorySourceEnum.optional().describe("Who wrote this: 'user' (explicit preference), 'ai' (inferred), 'system' (automated)"),
     },
-    async ({ key, content, type, scope, project_id, tags, metadata }) => {
+    async ({ key, content, type, scope, project_id, tags, metadata, source }) => {
       try {
-        const memory = writeMemory({ key, content, type, scope, project_id, tags, metadata });
+        const memory = writeMemory({ key, content, type, scope, project_id, tags, metadata, source });
         return {
           content: [
             {

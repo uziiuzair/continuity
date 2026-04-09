@@ -1,0 +1,59 @@
+{
+  "id": "continuity-org-memory-sync",
+  "name": "Org Memory Sync",
+  "version": "0.1.0",
+  "description": "Sync local memories to a central org server for shared team knowledge",
+  "author": "Continuity Team",
+  "homepage": "https://github.com/continuity/org-memory-sync",
+  "license": "MIT",
+
+  "runtime": "node",
+  "entry": "dist/index.js",
+
+  "capabilities": [
+    "db:read",
+    "db:write",
+    "db:subscribe",
+    "events:memories",
+    "ui:sidebar",
+    "ui:notifications",
+    "chat:tools",
+    "chat:prompts"
+  ],
+
+  "settings": [
+    {
+      "key": "server_url",
+      "type": "string",
+      "label": "Org Server URL",
+      "description": "The URL of your organization's Continuity memory server",
+      "placeholder": "https://memory.yourcompany.com",
+      "required": true
+    },
+    {
+      "key": "api_key",
+      "type": "secret",
+      "label": "API Key",
+      "description": "Your authentication key for the org server",
+      "required": true
+    },
+    {
+      "key": "sync_interval",
+      "type": "number",
+      "label": "Sync Interval (seconds)",
+      "description": "How often to check for remote changes",
+      "default": 30
+    },
+    {
+      "key": "sync_scope",
+      "type": "select",
+      "label": "Sync Scope",
+      "description": "Which memories to sync to the org server",
+      "default": "global",
+      "options": [
+        { "label": "Global only", "value": "global" },
+        { "label": "All memories", "value": "all" }
+      ]
+    }
+  ]
+}

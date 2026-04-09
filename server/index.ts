@@ -7,6 +7,7 @@ import { registerProjectTools } from "./tools/project-tools.js";
 import { registerSearchTools } from "./tools/search-tools.js";
 import { registerRelationshipTools } from "./tools/relationship-tools.js";
 import { registerLifecycleTools } from "./tools/lifecycle-tools.js";
+import { registerNarrativeTools } from "./tools/narrative-tools.js";
 
 const server = new McpServer({
   name: "continuity-memory",
@@ -23,8 +24,9 @@ registerProjectTools(server);
 registerSearchTools(server);
 registerRelationshipTools(server);
 registerLifecycleTools(server);
+registerNarrativeTools(server);
 
-console.error("[continuity-memory] 12 tools registered");
+console.error("[continuity-memory] 17 tools registered");
 
 // Graceful shutdown
 process.on("SIGINT", () => {

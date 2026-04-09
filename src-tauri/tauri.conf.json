@@ -7,7 +7,7 @@
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build && cd server && npm run build -- --with-native"
   },
   "app": {
     "withGlobalTauri": true,
@@ -28,6 +28,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../server/dist/server.mjs": "mcp-server/server.mjs",
+      "../server/dist/node_modules/": "mcp-server/node_modules/"
+    },
     "icon": [
       "icons/continuity/32x32.png",
       "icons/continuity/128x128.png",

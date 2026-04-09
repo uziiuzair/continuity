@@ -64,6 +64,17 @@ Today, Continuity is a desktop app that combines conversational AI with a custom
 - Full MCP client supporting stdio and HTTP transports
 - MCP Apps rendering — interactive UI directly in chat
 - Connector management in settings
+- Built-in MCP memory server — 12 tools for persistent, versioned memory
+- Cross-tool sync — memories from Claude Code, Cursor, or other MCP clients are available in Continuity
+
+### Plugins
+
+- Plugin system with TypeScript SDK (`@continuity/plugin-sdk`)
+- Plugins run as standalone sidecar processes (Node.js, Python, or Deno)
+- Register AI tools, inject system prompts, subscribe to real-time events
+- Access the local database, control MCP servers, inject UI panels
+- Plugin settings auto-generated from manifest
+- Official example: [Org Memory Sync](plugins/continuity-org-memory-sync/) for team-wide shared knowledge
 
 ### Local-First
 
@@ -90,7 +101,9 @@ Today, Continuity is a desktop app that combines conversational AI with a custom
 | Markdown          | react-markdown, remark-gfm                        |
 | Code Highlighting | prism-react-renderer                              |
 | UI Components     | Headless UI, Mantine                              |
-| MCP               | @mcp-ui/client                                    |
+| MCP               | @mcp-ui/client, @modelcontextprotocol/sdk          |
+| Plugin System     | WebSocket sidecar + @continuity/plugin-sdk          |
+| Memory Server     | better-sqlite3, @modelcontextprotocol/sdk           |
 
 ---
 
@@ -98,21 +111,27 @@ Today, Continuity is a desktop app that combines conversational AI with a custom
 
 ```
 continuity/
-├── app/                    # Next.js pages (home, journal, projects, documents)
+├── app/                    # Next.js pages (home, journal, memories)
 ├── components/             # React components
 │   ├── canvas/             # Block editor (blocks, chart, columns, database)
 │   ├── chat/               # Chat UI, research panel, MCP apps
 │   ├── journal/            # Journal editor, calendar, streaks
-│   ├── projects/           # Project management
-│   ├── documents/          # Document editor
+│   ├── memories/           # Memory browser and detail views
+│   ├── onboarding/         # First-run onboarding flow
+│   ├── plugins/            # Plugin UI (iframe frame, panel)
 │   ├── layout/             # Sidebar, app shell
-│   └── settings/           # Settings panels
+│   └── settings/           # Settings panels (including plugins)
 ├── lib/                    # Utilities and services
-│   ├── ai/                 # AI clients, tools, research engine
-│   ├── db/                 # Database operations
-│   └── mcp/                # MCP client and transports
-├── providers/              # 13 React context providers
+│   ├── ai/                 # AI clients, 10 tool modules, research engine
+│   ├── db/                 # Database CRUD modules
+│   ├── mcp/                # MCP client and transports
+│   └── plugins/            # Plugin manager and manifest validation
+├── providers/              # 14 React context providers
 ├── types/                  # TypeScript types
+├── server/                 # MCP memory server (Node.js sidecar)
+├── plugin-host/            # Plugin Host (Node.js WebSocket sidecar)
+├── plugin-sdk/             # @continuity/plugin-sdk package
+├── plugins/                # Official plugin examples
 ├── src-tauri/              # Tauri/Rust backend
 └── public/                 # Static assets
 ```
@@ -171,19 +190,54 @@ Future considerations:
 - Spaces with auto-generated dashboards
 - Graph view for relationship visualization
 - Cross-device sync
-- Plugin system
+
+---
+
+## Extending Continuity
+
+Build plugins using the `@continuity/plugin-sdk`:
+
+```typescript
+import { ContinuityPlugin } from '@continuity/plugin-sdk'
+
+const plugin = new ContinuityPlugin()
+
+// Register a tool the AI can call
+await plugin.chat.registerTool({
+  name: 'search_org_knowledge',
+  description: 'Search shared org knowledge base',
+  parameters: {
+    type: 'object',
+    properties: { query: { type: 'string' } },
+    required: ['query']
+  },
+  handler: async ({ query }) => {
+    const results = await searchOrgServer(query as string)
+    return { content: JSON.stringify(results) }
+  }
+})
+
+// Subscribe to real-time events
+plugin.events.on('memory:created', async (data) => {
+  console.log('New memory:', data)
+})
+
+await plugin.start()
+```
+
+See [plugin-sdk/README.md](plugin-sdk/README.md) for the full SDK reference and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ---
 
 ## Contributing
 
-We welcome contributions. Here's how you can help:
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code standards, and the PR process.
+
+Quick start:
 
 1. **Report bugs** — Open an issue with steps to reproduce
 2. **Suggest features** — Start a discussion about what you'd like to see
-3. **Submit PRs** — Fork, branch, and submit a pull request
-
-To get set up, follow the [Getting Started](#getting-started) instructions above. Check `claude_docs/` for documentation on the codebase and architecture decisions. Run `npx tsc --noEmit` to verify types before submitting.
+3. **Submit PRs** — Fork, branch, run `npx tsc --noEmit`, and submit
 
 Please be kind and constructive. We're building something thoughtful here.
 

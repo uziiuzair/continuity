@@ -8,6 +8,7 @@ import {
   useCallback,
 } from "react";
 import { isTauriContext } from "@/lib/db";
+import { getMemoryDb } from "@/lib/db/memory-db";
 
 // Types matching the MCP server schema
 export type MemoryType =
@@ -24,6 +25,8 @@ export type RelationshipType =
   | "supersedes"
   | "implements";
 
+export type MemorySource = "user" | "ai" | "system";
+
 export interface McpMemory {
   id: string;
   key: string;
@@ -33,10 +36,23 @@ export interface McpMemory {
   project_id: string | null;
   tags: string | null;
   metadata: string | null;
+  source: MemorySource;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
   version: number;
+}
+
+export interface McpNarrative {
+  id: string;
+  scope: string;
+  project_id: string | null;
+  content: string;
+  sections: string;
+  version: number;
+  confidence: number;
+  last_synthesized_at: string;
+  memory_snapshot_hash: string | null;
 }
 
 export interface McpProject {
@@ -70,9 +86,11 @@ export interface McpMemoryLink {
 interface MemoriesContextType {
   memories: McpMemory[];
   projects: McpProject[];
+  narrative: McpNarrative | null;
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  synthesizeNow: () => Promise<boolean>;
   getVersionHistory: (memoryId: string) => Promise<McpMemoryVersion[]>;
   getLinkedMemories: (
     memoryId: string
@@ -82,30 +100,22 @@ interface MemoriesContextType {
 const MemoriesContext = createContext<MemoriesContextType>({
   memories: [],
   projects: [],
+  narrative: null,
   isLoading: false,
   error: null,
   refresh: async () => {},
+  synthesizeNow: async () => false,
   getVersionHistory: async () => [],
   getLinkedMemories: async () => [],
 });
 
-// Memory DB uses a separate SQLite file at ~/.continuity/memory.db
-let memoryDb: import("@tauri-apps/plugin-sql").default | null = null;
-
-async function getMemoryDb() {
-  if (!memoryDb) {
-    const Database = (await import("@tauri-apps/plugin-sql")).default;
-    // The Tauri SQL plugin always resolves sqlite: paths relative to the app config dir
-    // (~/Library/Application Support/com.ooozzy.continuity/ on macOS).
-    // The MCP server writes memory.db to the same directory, so a simple relative path works.
-    memoryDb = await Database.load("sqlite:memory.db");
-  }
-  return memoryDb;
-}
+// Memory DB connection is shared via lib/db/memory-db.ts
+// Both this provider and lib/db/memories.ts use the same connection
 
 export function MemoriesProvider({ children }: { children: React.ReactNode }) {
   const [memories, setMemories] = useState<McpMemory[]>([]);
   const [projects, setProjects] = useState<McpProject[]>([]);
+  const [narrative, setNarrative] = useState<McpNarrative | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,6 +137,16 @@ export function MemoriesProvider({ children }: { children: React.ReactNode }) {
         "SELECT * FROM projects WHERE archived_at IS NULL ORDER BY updated_at DESC"
       );
       setProjects(projRows);
+
+      // Load the global narrative
+      try {
+        const narRows = await db.select<McpNarrative[]>(
+          "SELECT * FROM narratives WHERE scope = 'global' ORDER BY version DESC LIMIT 1"
+        );
+        setNarrative(narRows[0] || null);
+      } catch {
+        // Table might not exist yet — non-critical
+      }
     } catch (err) {
       // DB might not exist yet if MCP server hasn't been run
       console.error("Failed to load memories:", err);
@@ -199,6 +219,7 @@ export function MemoriesProvider({ children }: { children: React.ReactNode }) {
             project_id: row.project_id,
             tags: row.tags,
             metadata: row.metadata,
+            source: (row as unknown as { source: MemorySource }).source || "ai",
             archived_at: row.archived_at,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -212,8 +233,30 @@ export function MemoriesProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const synthesizeNow = useCallback(async (): Promise<boolean> => {
+    if (!isTauriContext()) return false;
+    try {
+      const { synthesizeNarrative } = await import("@/lib/ai/narrative-synthesis");
+      const success = await synthesizeNarrative("global");
+      if (success) await refresh(); // Reload to pick up new narrative
+      return success;
+    } catch (err) {
+      console.error("Synthesis failed:", err);
+      return false;
+    }
+  }, [refresh]);
+
   useEffect(() => {
     refresh();
+
+    // Check if narrative synthesis is needed on mount (app launch trigger)
+    if (isTauriContext()) {
+      import("@/lib/ai/narrative-synthesis").then(({ checkAndSynthesize }) => {
+        checkAndSynthesize().then((synthesized) => {
+          if (synthesized) refresh();
+        }).catch(() => {});
+      }).catch(() => {});
+    }
   }, [refresh]);
 
   // Poll for changes every 10 seconds (simple auto-refresh)
@@ -228,9 +271,11 @@ export function MemoriesProvider({ children }: { children: React.ReactNode }) {
       value={{
         memories,
         projects,
+        narrative,
         isLoading,
         error,
         refresh,
+        synthesizeNow,
         getVersionHistory,
         getLinkedMemories,
       }}

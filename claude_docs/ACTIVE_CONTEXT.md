@@ -1,121 +1,180 @@
 # Active Context
 
-**Last Updated**: 2026-04-03 (MCP Memory Server + Feature Trimming)
-**Current Session Focus**: Implemented MCP Memory Server, stripped Documents/Projects, added Memory Dashboard, fixed CORS issue
+**Last Updated**: 2026-04-08 (Unified Memory System)
+**Current Session Focus**: Unified MCP memory with in-app AI memory — one database, system prompt injection
 
 ## Current State Summary
 
-Built the Continuity MCP Memory Server — a standalone Node.js process that any AI tool (Claude Code, Cursor, Windsurf) can write persistent memories to. The server stores memories in `~/.continuity/memory.db` with versioning, relationships, and project-scoped organization. The Tauri desktop app reads the same SQLite file to display a Memory Dashboard. Also stripped the old Documents and Projects features, and fixed a CORS bug in the Anthropic/OpenAI API clients.
+Unified the memory system and cleaned up the AI tool pipeline. The in-app AI now uses the same `memory.db` as the MCP server — one source of truth for all tools. Removed the old artifact, database, and work-state tool systems that were still wired into the chat pipeline. The workspace agent prompt now directs the AI to use memory tools + MCP for tracking projects, decisions, and context.
 
 ---
 
 ## Recently Completed (This Session)
 
-### Phase 1: MCP Memory Server
+### Unified Memory System
 
-#### New Files (13)
-| File | Purpose |
-|------|---------|
-| `server/package.json` | Server dependencies: @modelcontextprotocol/sdk, better-sqlite3, zod |
-| `server/tsconfig.json` | Node.js ESM TypeScript config |
-| `server/index.ts` | Entry point — stdio transport, tool registration |
-| `server/types.ts` | Server type definitions (Memory, Project, MemoryVersion, MemoryLink) |
-| `server/db/connection.ts` | better-sqlite3 connection to ~/.continuity/memory.db with WAL mode |
-| `server/db/schema.ts` | DDL for projects, memories, memory_versions, memory_links tables |
-| `server/db/memories.ts` | Memory CRUD with version tracking and upsert |
-| `server/db/projects.ts` | Project CRUD |
-| `server/db/relationships.ts` | Memory link operations |
-| `server/db/versions.ts` | Version history queries |
-| `server/db/search.ts` | LIKE-based search across key, content, tags |
-| `server/tools/memory-tools.ts` | 5 tools: memory_write, memory_read, memory_update, memory_delete, memory_bulk_import |
-| `server/tools/project-tools.ts` | 3 tools: project_create, project_list, project_get |
-| `server/tools/search-tools.ts` | 1 tool: memory_search |
-| `server/tools/relationship-tools.ts` | 2 tools: memory_link, memory_links_get |
-| `server/tools/lifecycle-tools.ts` | 1 tool: memory_version_history |
+Merged the two disconnected memory systems into one. The in-app AI (remember/recall/forget tools) now reads/writes the same `memory.db` that the MCP server exposes to external tools.
 
-### Phase 3: Feature Trimming
-
-#### Deleted Files (13)
-| File | Reason |
-|------|--------|
-| `app/documents/page.tsx` | Documents feature removed |
-| `app/projects/page.tsx` | Projects feature removed |
-| `components/documents/*` (5 files) | DocumentsPage, DocumentEditor, DocumentCard, SplitView, DocumentTabs |
-| `components/projects/*` (6 files) | ProjectsPage, ProjectDetailView, ProjectCard, etc. |
-| `providers/documents-provider.tsx` | Documents state removed |
-| `providers/projects-provider.tsx` | Projects state removed |
-| `lib/db/projects.ts` | Old projects DB module replaced by MCP server |
-| `types/project.ts` | Old project types |
-
-#### Modified Files
 | File | Change |
 |------|--------|
-| `app/layout.tsx` | Removed ProjectsProvider, added MemoriesProvider |
-| `providers/chat-provider.tsx` | Removed project imports and project-specific prompt injection |
-| `components/layout/Sidebar.tsx` | Replaced Documents+Projects nav with Memories nav |
-| `tsconfig.json` | Excluded `server/` directory |
+| `lib/db/memory-db.ts` | **NEW** — Shared memory.db connection + schema bootstrap |
+| `lib/db/memories.ts` | **REWRITE** — All CRUD now hits memory.db with MCP schema (versioned, typed, tagged, soft-delete) |
+| `lib/ai/memory-tools.ts` | **ENHANCED** — Added `type`/`tags` params, `getMemoryContext()` for prompt injection, updated system prompt |
+| `providers/chat-provider.tsx` | **EDIT** — Wired `getMemoryContext()` into `buildSystemPrompt()` for passive memory awareness |
+| `providers/memories-provider.tsx` | **EDIT** — Uses shared `getMemoryDb()` from memory-db.ts |
+| `providers/database-provider.tsx` | **EDIT** — Calls `ensureMemorySchema()` at startup |
+| `lib/vault/memory.ts` | **FIX** — `.value` → `.content` after type change |
+| `lib/db-service.ts` | **EDIT** — Removed old simple `memories` table from test.db |
 
-### Phase 4: Memory Dashboard
+#### Key Changes
+1. **One database**: Both in-app AI and MCP server read/write `memory.db`
+2. **System prompt injection**: Memories are pre-loaded into every AI conversation (grouped by type)
+3. **Rich schema**: AI tools now support `type` (decision/preference/context/constraint/pattern) and `tags`
+4. **Soft delete**: `forget` archives memories instead of hard-deleting
+5. **Versioning**: Every memory update bumps version and records history in `memory_versions`
+6. **Schema bootstrap**: App creates `memory.db` tables at startup, even before MCP server runs
 
-#### New Files (7)
+### Removed Old Tool Systems
+
+Disconnected 3 legacy tool systems from the chat pipeline that were causing the AI to use "List Artifacts", "Read Work State", etc. instead of MCP memory:
+
+| Removed | What it did | Replaced by |
+|---------|-------------|-------------|
+| `ARTIFACT_TOOLS` (7 tools) | create_task, list_artifacts, etc. | MCP memory (type: decision/context) |
+| `WORK_STATE_TOOLS` (7 tools) | read_work_state, add_blocker, etc. | MCP memory (type: constraint/context) |
+| `DATABASE_TOOLS` (3 tools) | create_database, add_row, etc. | Not needed in v1 |
+| `WORKSPACE_AGENT_PROMPT` (old) | "Call read_work_state on every message" | Rewritten to use memory tools |
+
+Files modified:
+- `providers/chat-provider.tsx` — Removed imports, tool arrays, execution branches, system prompts
+- `lib/ai/workspace-agent-prompt.ts` — Rewritten for memory-first approach
+- `components/chat/ToolCallsBlock.tsx` — Cleaned up old tool labels
+
+The old tool files (`artifact-tools.ts`, `work-state-tools.ts`, `database-tools.ts`) still exist on disk but are no longer imported anywhere
+
+### Plugin System (3 Phases)
+
+#### Phase 1: Plugin Host Infrastructure
 | File | Purpose |
 |------|---------|
-| `app/memories/page.tsx` | Route for memory dashboard |
-| `providers/memories-provider.tsx` | Reads from ~/.continuity/memory.db via Tauri SQL plugin |
-| `components/memories/MemoriesPage.tsx` | Main page: tabs for Global / By Project |
-| `components/memories/MemoryList.tsx` | Filterable/searchable list with type chips |
-| `components/memories/MemoryCard.tsx` | Card: key, content snippet, type badge, tags, version |
-| `components/memories/MemoryDetail.tsx` | Full view: content, versions, linked memories |
-| `components/memories/VersionTimeline.tsx` | Version history timeline display |
-| `components/memories/ProjectMemories.tsx` | Project-scoped memory grouping |
+| `types/plugin.ts` | Full type system — manifest, capabilities, RPC protocol |
+| `lib/plugins/manifest.ts` | Manifest parser/validator |
+| `lib/db/plugins.ts` | CRUD for plugins table |
+| `plugin-host/src/index.ts` | Plugin Host entry point (Node.js WebSocket sidecar) |
+| `plugin-host/src/server.ts` | WebSocket server with JSON-RPC routing |
+| `plugin-host/src/db.ts` | SQLite connection to app DBs |
+| `plugin-host/src/handlers/*.ts` | 6 RPC handler modules (db, events, settings, chat, ui, mcp) |
+| `lib/plugins/manager.ts` | Frontend PluginManager singleton |
+| `providers/plugin-provider.tsx` | React context for plugin state |
 
-### Bug Fix: CORS in API Clients
+#### Phase 2: Chat + UI Integration
+| File | Purpose |
+|------|---------|
+| `lib/ai/plugin-tools.ts` | Bridges plugin tools into AI tool system |
+| `components/plugins/PluginFrame.tsx` | Sandboxed iframe for plugin UIs |
+| `components/plugins/PluginPanel.tsx` | Full-page plugin view for sidebar |
+| `components/settings/panels/PluginsPanel.tsx` | Install/manage plugins UI |
 
-#### Modified Files
-| File | Change |
-|------|--------|
-| `lib/ai/anthropic.ts` | Replaced browser `fetch` with Tauri's `tauriFetch` to bypass CORS |
-| `lib/ai/openai.ts` | Same CORS fix |
+Modified: `chat-provider.tsx`, `view-provider.tsx`, `AppShell.tsx`, `Sidebar.tsx`, `SettingsModal.tsx`, `SettingsSidebar.tsx`
+
+#### Phase 3: SDK + First Plugin
+| File | Purpose |
+|------|---------|
+| `plugin-sdk/src/index.ts` | ContinuityPlugin main class |
+| `plugin-sdk/src/client.ts` | WebSocket JSON-RPC client |
+| `plugin-sdk/src/*.ts` | API wrappers (db, events, chat, ui, mcp, settings) |
+| `plugins/continuity-org-memory-sync/` | First official plugin — org-wide memory sync |
+
+### Design Decisions
+1. **WebSocket over stdio/HTTP** — bidirectional, real-time events, natural for persistent connections
+2. **JSON-RPC 2.0** — consistent with MCP protocol, familiar in the codebase
+3. **Plugin Host as Node.js sidecar** — webview can't run WS server, matches MCP server pattern
+4. **API-mediated DB access** — plugins never touch SQLite files directly, all through parameterized queries
+5. **Tool handler stays in plugin process** — only metadata sent to host, handler executed locally
 
 ---
 
-## Architecture Decisions
+## Previous Sessions
 
-1. **Separate server process** — MCP server is a standalone Node.js process, not embedded in Tauri. This lets any AI tool connect via stdio independently.
-2. **Shared SQLite with WAL** — Server writes, app reads. WAL mode allows concurrent access.
-3. **Soft deletes** — Memories are archived, never hard-deleted. Version history is append-only.
-4. **Upsert on key+scope+project** — Writing a memory with an existing key auto-versions it.
-5. **Tauri HTTP for API calls** — Browser fetch blocked by CORS; Tauri's Rust-side HTTP client bypasses it.
+### Session: Onboarding Flow (Apr 6, 2026)
+- Built full onboarding flow — Welcome screen, API key setup, MCP status with memory count
+
+### Session: MCP Memory Server + Feature Trimming (Apr 3, 2026)
+- Built MCP Memory Server (12 tools), stripped Documents/Projects, added Memory Dashboard, fixed CORS
+
+### Session: Obsidian Vault Integration (AI-Mediated)
+- Implemented vault integration — AI reads/writes to Obsidian vault with user approval
 
 ---
 
 ## Next Steps
 
-### Phase 2: Test with Claude Code
-- Add to `.mcp.json`: `{ "mcpServers": { "ooozzy": { "command": "npx", "args": ["tsx", "server/index.ts"] } } }`
-- Test each tool: write → read → update → search → link → version history
+### Immediate
+- Test plugin system end-to-end in Tauri dev mode
+- Build Plugin Host bundling into Tauri app resources (like MCP server)
+- Plugin update mechanism (git pull + restart)
+- Plugin dev mode (hot reload, debug logging)
 
-### Phase 5: Polish
-- FTS5 for better search
-- HTTP transport for non-stdio clients
+### Future
+- Remote plugin registry (browse/install from URL)
+- Plugin postMessage bridge for iframe↔host communication
+- Build the tunnel plugin as second proof point
+- npm publish `@continuity/plugin-sdk`
+
+#### New Files (5)
+| File | Purpose |
+|------|---------|
+| `providers/onboarding-provider.tsx` | Manages onboarding state, step navigation, memory count from MCP DB |
+| `components/onboarding/OnboardingFlow.tsx` | Root orchestrator — AnimatePresence between steps |
+| `components/onboarding/WelcomeStep.tsx` | Full-screen hero: three pillars (Universal Memory, Fully Local, Always In-Sync) |
+| `components/onboarding/ApiKeyStep.tsx` | API key entry with provider/model selection, reuses existing Select atom |
+| `components/onboarding/McpStatusStep.tsx` | MCP connection status, memory count highlight, privacy confirmation |
+
+#### Modified Files (3)
+| File | Change |
+|------|--------|
+| `app/layout.tsx` | Added OnboardingProvider after DatabaseProvider |
+| `components/layout/AppShell.tsx` | Gates main app behind onboarding completion |
+| `components/briefing/OnboardingView.tsx` | Reframed suggestions around KB building, shows memory count, added icons |
+
+### Design Decisions
+1. **OnboardingProvider sits after DatabaseProvider** — needs DB access for settings, but before everything else
+2. **Memory count checked from separate MCP SQLite** — shows existing memories from other tools during onboarding
+3. **Completion stored as `onboarding_completed` setting** — reuses existing settings table, no schema changes
+4. **Full-screen overlay in AppShell** — rather than blocking provider tree, so MemoriesProvider still initializes
+5. **Step navigation via state, not routes** — keeps onboarding self-contained, no URL changes
+
+---
+
+## Architecture Decisions
+
+1. **Separate server process** — MCP server is a standalone Node.js process, not embedded in Tauri
+2. **Shared SQLite with WAL** — Server writes, app reads
+3. **Soft deletes** — Memories are archived, never hard-deleted
+4. **Upsert on key+scope+project** — Writing a memory with an existing key auto-versions it
+5. **Tauri HTTP for API calls** — Browser fetch blocked by CORS; Tauri's Rust-side HTTP client bypasses it
+
+---
+
+## Next Steps
+
+### Immediate
+- Test onboarding flow end-to-end in Tauri dev mode
+- Consider adding contextual tips (progressive reveal) for first canvas block, first memory, etc.
+- Add ability to replay onboarding from settings (reset `onboarding_completed` key)
+
+### Future
+- FTS5 for better memory search
+- HTTP transport for non-stdio MCP clients
 - Auto-refresh via filesystem watcher
 - npm publish as `npx ooozzy-memory`
-
-### Verification Checklist
-1. ✅ Server starts: `npx tsx server/index.ts` runs without errors
-2. ✅ Database created at `~/.continuity/memory.db`
-3. ✅ 12 tools registered
-4. ✅ TypeScript compilation clean (both app and server)
-5. ✅ Documents and Projects removed cleanly
-6. ✅ Sidebar updated with Memories nav
-7. ⬜ Claude Code sees tools after adding to .mcp.json
-8. ⬜ Round-trip: write → read → update → search
-9. ⬜ Memory Dashboard shows data in Tauri app
-10. ⬜ Chat, Journal, Briefing, Vault all still work
 
 ---
 
 ## Previous Sessions
+
+### Session: MCP Memory Server + Feature Trimming (Apr 3, 2026)
+- Built MCP Memory Server (12 tools), stripped Documents/Projects, added Memory Dashboard, fixed CORS
 
 ### Session: Obsidian Vault Integration (AI-Mediated)
 - Implemented vault integration — AI reads/writes to Obsidian vault with user approval

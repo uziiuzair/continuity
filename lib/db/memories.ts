@@ -1,14 +1,17 @@
 /**
  * Memory Database Operations
  *
- * CRUD operations for the memories table - persistent key-value storage
- * that the AI can use to remember information across conversations.
+ * CRUD operations for the unified memory.db — the same database that
+ * the MCP server exposes to external tools (Claude Code, Cursor, Windsurf).
+ * All in-app AI memory tools (remember/recall/forget) go through here.
+ *
+ * Schema matches server/db/schema.ts: versioned, typed, tagged, soft-deleted.
  */
 
-import { getDb, isTauriContext } from "../db";
-import { Memory } from "@/types";
+import { getMemoryDb } from "./memory-db";
+import { isTauriContext } from "@/lib/db";
+import type { McpMemory, MemoryType } from "@/providers/memories-provider";
 
-// Generate a unique ID
 function generateId(): string {
   return `mem-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -19,68 +22,80 @@ function generateId(): string {
 export async function getMemory(
   key: string,
   scope: string = "global"
-): Promise<Memory | null> {
+): Promise<McpMemory | null> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
-  const rows = await db.select<
-    {
-      id: string;
-      key: string;
-      value: string;
-      scope: string;
-      created_at: string;
-      updated_at: string;
-    }[]
-  >(
-    "SELECT id, key, value, scope, created_at, updated_at FROM memories WHERE key = $1 AND scope = $2",
+  const db = await getMemoryDb();
+  const rows = await db.select<McpMemory[]>(
+    `SELECT * FROM memories
+     WHERE key = $1 AND scope = $2 AND project_id IS NULL AND archived_at IS NULL`,
     [key, scope]
   );
 
-  if (rows.length === 0) {
-    return null;
-  }
-
-  const row = rows[0];
-  return {
-    id: row.id,
-    key: row.key,
-    value: row.value,
-    scope: row.scope,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-  };
+  return rows.length > 0 ? rows[0] : null;
 }
 
 /**
- * Set a memory value (creates or updates)
+ * Set a memory value (creates or updates with versioning)
+ *
+ * When a memory with the same key+scope already exists, bumps the version
+ * and records history in memory_versions — matching MCP server behavior.
  */
 export async function setMemory(
   key: string,
-  value: string,
-  scope: string = "global"
-): Promise<Memory> {
+  content: string,
+  scope: string = "global",
+  type: MemoryType = "context",
+  tags?: string[]
+): Promise<McpMemory> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
+  const db = await getMemoryDb();
   const now = new Date().toISOString();
-  const id = generateId();
+  const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : null;
 
-  // Use UPSERT to create or update
-  await db.execute(
-    `INSERT INTO memories (id, key, value, scope, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $5)
-     ON CONFLICT(key, scope) DO UPDATE SET
-       value = $3,
-       updated_at = $5`,
-    [id, key, value, scope, now]
-  );
+  // Check if memory already exists
+  const existing = await getMemory(key, scope);
 
-  // Fetch the memory to return (could be the new one or updated existing)
+  if (existing) {
+    // Update existing: bump version, record history
+    const newVersion = existing.version + 1;
+
+    // Insert version history
+    await db.execute(
+      `INSERT INTO memory_versions (id, memory_id, content, version, changed_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [generateId(), existing.id, existing.content, existing.version, "continuity-app", now]
+    );
+
+    // Update the memory
+    await db.execute(
+      `UPDATE memories SET content = $1, type = $2, tags = $3, version = $4, updated_at = $5
+       WHERE id = $6`,
+      [content, type, tagsJson, newVersion, now, existing.id]
+    );
+  } else {
+    // Create new memory
+    const id = generateId();
+
+    await db.execute(
+      `INSERT INTO memories (id, key, content, type, scope, project_id, tags, created_at, updated_at, version)
+       VALUES ($1, $2, $3, $4, $5, NULL, $6, $7, $7, 1)`,
+      [id, key, content, type, scope, tagsJson, now]
+    );
+
+    // Record initial version
+    await db.execute(
+      `INSERT INTO memory_versions (id, memory_id, content, version, changed_by, created_at)
+       VALUES ($1, $2, $3, 1, $4, $5)`,
+      [generateId(), id, content, "continuity-app", now]
+    );
+  }
+
   const memory = await getMemory(key, scope);
   if (!memory) {
     throw new Error("Failed to create or update memory");
@@ -90,42 +105,37 @@ export async function setMemory(
 }
 
 /**
- * Get all memories for a given scope
+ * Get all non-archived memories.
+ * When scope is provided, filters to that scope only.
+ * When omitted, returns memories across ALL scopes (global + project).
  */
 export async function getAllMemories(
-  scope: string = "global"
-): Promise<Memory[]> {
+  scope?: string
+): Promise<McpMemory[]> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
-  const rows = await db.select<
-    {
-      id: string;
-      key: string;
-      value: string;
-      scope: string;
-      created_at: string;
-      updated_at: string;
-    }[]
-  >(
-    "SELECT id, key, value, scope, created_at, updated_at FROM memories WHERE scope = $1 ORDER BY key ASC",
-    [scope]
-  );
+  const db = await getMemoryDb();
 
-  return rows.map((row) => ({
-    id: row.id,
-    key: row.key,
-    value: row.value,
-    scope: row.scope,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-  }));
+  if (scope) {
+    return db.select<McpMemory[]>(
+      `SELECT * FROM memories
+       WHERE scope = $1 AND archived_at IS NULL
+       ORDER BY updated_at DESC`,
+      [scope]
+    );
+  }
+
+  return db.select<McpMemory[]>(
+    `SELECT * FROM memories
+     WHERE archived_at IS NULL
+     ORDER BY updated_at DESC`
+  );
 }
 
 /**
- * Delete a memory by key
+ * Soft-delete a memory (set archived_at, matching MCP server behavior)
  */
 export async function deleteMemory(
   key: string,
@@ -135,49 +145,33 @@ export async function deleteMemory(
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
+  const db = await getMemoryDb();
+  const now = new Date().toISOString();
   await db.execute(
-    "DELETE FROM memories WHERE key = $1 AND scope = $2",
-    [key, scope]
+    `UPDATE memories SET archived_at = $1 WHERE key = $2 AND scope = $3 AND project_id IS NULL`,
+    [now, key, scope]
   );
-
-  // SQLite doesn't return affected rows easily, so we just return true
   return true;
 }
 
 /**
- * Search memories by key pattern
+ * Search memories by pattern across key and content.
+ * Searches ALL scopes (global + project) to find memories
+ * written by any tool (in-app, Claude Code, Cursor, etc.)
  */
 export async function searchMemories(
-  pattern: string,
-  scope: string = "global"
-): Promise<Memory[]> {
+  pattern: string
+): Promise<McpMemory[]> {
   if (!isTauriContext()) {
     throw new Error("Database operations require Tauri context");
   }
 
-  const db = await getDb();
-  // Use LIKE for pattern matching with % wildcards
-  const rows = await db.select<
-    {
-      id: string;
-      key: string;
-      value: string;
-      scope: string;
-      created_at: string;
-      updated_at: string;
-    }[]
-  >(
-    "SELECT id, key, value, scope, created_at, updated_at FROM memories WHERE scope = $1 AND (key LIKE $2 OR value LIKE $2) ORDER BY key ASC",
-    [scope, `%${pattern}%`]
+  const db = await getMemoryDb();
+  return db.select<McpMemory[]>(
+    `SELECT * FROM memories
+     WHERE archived_at IS NULL
+       AND (key LIKE $1 OR content LIKE $1)
+     ORDER BY updated_at DESC`,
+    [`%${pattern}%`]
   );
-
-  return rows.map((row) => ({
-    id: row.id,
-    key: row.key,
-    value: row.value,
-    scope: row.scope,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-  }));
 }

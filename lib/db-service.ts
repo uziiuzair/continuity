@@ -87,18 +87,8 @@ export async function initializeSchema(): Promise<void> {
     await db.execute("ALTER TABLE threads ADD COLUMN work_state TEXT");
   }
 
-  // Memories table for persistent key-value storage
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS memories (
-      id TEXT PRIMARY KEY,
-      key TEXT NOT NULL,
-      value TEXT NOT NULL,
-      scope TEXT DEFAULT 'global',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(key, scope)
-    )
-  `);
+  // Note: memories table has been moved to memory.db (shared with MCP server)
+  // Schema is bootstrapped via ensureMemorySchema() in database-provider.tsx
 
   // Artifacts table for tasks, notes, decisions
   await db.execute(`
@@ -248,6 +238,23 @@ export async function initializeSchema(): Promise<void> {
 
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_journal_links_entity ON journal_links(linked_type, linked_id)
+  `);
+
+  // Plugins table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS plugins (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      description TEXT,
+      manifest TEXT NOT NULL,
+      enabled INTEGER DEFAULT 0,
+      install_path TEXT NOT NULL,
+      source TEXT NOT NULL,
+      settings_json TEXT DEFAULT '{}',
+      installed_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
   `);
 
   // Migration: Update database_columns type constraint for new column types

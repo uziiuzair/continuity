@@ -1,0 +1,23 @@
+{
+  "name": "continuity-threads-engagement",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@continuity/plugin-sdk": "file:../../plugin-sdk",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "better-sqlite3": "^11.9.1",
+    "express": "^4.21.0",
+    "openai": "^4.70.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

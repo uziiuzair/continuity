@@ -12,8 +12,6 @@ interface ConnectModalProps {
 
 type Tool = "claude-code" | "cursor" | "windsurf";
 
-const SERVER_PATH = "server/index.ts";
-
 const TOOLS: { id: Tool; name: string; icon: string }[] = [
   { id: "claude-code", name: "Claude Code", icon: "C" },
   { id: "cursor", name: "Cursor", icon: "Cu" },
@@ -21,22 +19,24 @@ const TOOLS: { id: Tool; name: string; icon: string }[] = [
 ];
 
 function getConfig(tool: Tool): { filename: string; config: string; instructions: string[] } {
-  const baseConfig = {
+  const config = {
     mcpServers: {
       continuity: {
         command: "npx",
-        args: ["tsx", SERVER_PATH],
+        args: ["continuity-memory"],
       },
     },
   };
+
+  const configStr = JSON.stringify(config, null, 2);
 
   switch (tool) {
     case "claude-code":
       return {
         filename: ".mcp.json",
-        config: JSON.stringify(baseConfig, null, 2),
+        config: configStr,
         instructions: [
-          "Create a .mcp.json file in your project root",
+          "Create a .mcp.json file in your project root (or ~/.claude/ for global)",
           "Paste the configuration below",
           "Restart Claude Code — the 12 memory tools will appear automatically",
           "Try: \"Remember that this project uses Express + MongoDB\"",
@@ -45,7 +45,7 @@ function getConfig(tool: Tool): { filename: string; config: string; instructions
     case "cursor":
       return {
         filename: ".cursor/mcp.json",
-        config: JSON.stringify(baseConfig, null, 2),
+        config: configStr,
         instructions: [
           "Create a .cursor/mcp.json file in your project root",
           "Paste the configuration below",
@@ -56,7 +56,7 @@ function getConfig(tool: Tool): { filename: string; config: string; instructions
     case "windsurf":
       return {
         filename: "~/.codeium/windsurf/mcp_config.json",
-        config: JSON.stringify(baseConfig, null, 2),
+        config: configStr,
         instructions: [
           "Open or create ~/.codeium/windsurf/mcp_config.json",
           "Paste the configuration below",

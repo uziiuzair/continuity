@@ -1,5 +1,5 @@
 import { getDb } from "./connection.js";
-import { Memory, MemoryType, MemoryScope } from "../types.js";
+import { Memory, MemoryType, MemoryScope, MemorySource } from "../types.js";
 import { randomUUID } from "crypto";
 
 function generateId(): string {
@@ -18,6 +18,7 @@ export function writeMemory(params: {
   project_id?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  source?: MemorySource;
   changed_by?: string;
 }): Memory {
   const db = getDb();
@@ -29,6 +30,7 @@ export function writeMemory(params: {
     project_id = null,
     tags,
     metadata,
+    source = "ai",
     changed_by,
   } = params;
 
@@ -47,10 +49,10 @@ export function writeMemory(params: {
   if (existing) {
     const newVersion = existing.version + 1;
     db.prepare(
-      `UPDATE memories SET content = ?, type = ?, tags = ?, metadata = ?,
+      `UPDATE memories SET content = ?, type = ?, tags = ?, metadata = ?, source = ?,
        updated_at = ?, version = ?, archived_at = NULL
        WHERE id = ?`
-    ).run(content, type, tagsJson, metadataJson, now, newVersion, existing.id);
+    ).run(content, type, tagsJson, metadataJson, source, now, newVersion, existing.id);
 
     // Record version
     db.prepare(
@@ -64,9 +66,9 @@ export function writeMemory(params: {
   // Create new
   const id = generateId();
   db.prepare(
-    `INSERT INTO memories (id, key, content, type, scope, project_id, tags, metadata, created_at, updated_at, version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-  ).run(id, key, content, type, scope, project_id, tagsJson, metadataJson, now, now);
+    `INSERT INTO memories (id, key, content, type, scope, project_id, tags, metadata, source, created_at, updated_at, version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+  ).run(id, key, content, type, scope, project_id, tagsJson, metadataJson, source, now, now);
 
   // Record initial version
   db.prepare(

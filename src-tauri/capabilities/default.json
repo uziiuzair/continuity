@@ -49,6 +49,15 @@
     "fs:allow-read-dir",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.*" },
+        { "path": "$HOME/.*/**" },
+        { "path": "$HOME/Library/Mobile Documents/**" }
+      ]
+    },
     "dialog:default",
     "dialog:allow-open"
   ]

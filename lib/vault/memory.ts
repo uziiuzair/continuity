@@ -39,7 +39,7 @@ export async function buildVaultMemory(
  */
 export async function getVaultMemory(): Promise<string | null> {
   const mem = await getMemory(VAULT_MEMORY_KEY, VAULT_MEMORY_SCOPE);
-  return mem?.value ?? null;
+  return mem?.content ?? null;
 }
 
 /**

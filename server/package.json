@@ -1,12 +1,39 @@
 {
   "name": "continuity-memory",
   "version": "1.0.0",
-  "description": "Continuity MCP Memory Server - persistent memory backbone for AI tools",
+  "description": "Persistent memory backbone for AI tools. MCP server that gives Claude Code, Cursor, and Windsurf shared, versioned memory across sessions.",
   "type": "module",
-  "main": "index.ts",
+  "main": "dist/server.mjs",
+  "bin": {
+    "continuity-memory": "bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "dist/server.mjs"
+  ],
+  "keywords": [
+    "mcp",
+    "memory",
+    "ai",
+    "claude",
+    "cursor",
+    "windsurf",
+    "model-context-protocol",
+    "sqlite"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uziiuzair/continuity"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "tsx index.ts",
-    "dev": "tsx watch index.ts"
+    "dev": "tsx watch index.ts",
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
@@ -15,6 +42,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "esbuild": "^0.28.0",
     "tsx": "^4.19.4",
     "typescript": "^5.9.3"
   }

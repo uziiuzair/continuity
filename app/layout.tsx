@@ -11,6 +11,8 @@ import { SubscriptionProvider } from "@/providers/subscription-provider";
 import { ViewProvider } from "@/providers/view-provider";
 import { DeveloperModeProvider } from "@/providers/developer-provider";
 import { MemoriesProvider } from "@/providers/memories-provider";
+import { OnboardingProvider } from "@/providers/onboarding-provider";
+import { PluginProvider } from "@/providers/plugin-provider";
 
 export default function RootLayout({
   children,
@@ -23,21 +25,25 @@ export default function RootLayout({
         <ViewProvider>
           <DeveloperModeProvider>
             <DatabaseProvider>
-              <AuthProvider>
-                <SubscriptionProvider>
-                  <ThreadsProvider>
-                    <CanvasProvider>
-                      <MCPProvider>
-                        <ChatProvider>
-                          <MemoriesProvider>
-                            <AppShell>{children}</AppShell>
-                          </MemoriesProvider>
-                        </ChatProvider>
-                      </MCPProvider>
-                    </CanvasProvider>
-                  </ThreadsProvider>
-                </SubscriptionProvider>
-              </AuthProvider>
+              <OnboardingProvider>
+                <AuthProvider>
+                  <SubscriptionProvider>
+                    <ThreadsProvider>
+                      <CanvasProvider>
+                        <MCPProvider>
+                          <PluginProvider>
+                            <ChatProvider>
+                              <MemoriesProvider>
+                              <AppShell>{children}</AppShell>
+                              </MemoriesProvider>
+                            </ChatProvider>
+                          </PluginProvider>
+                        </MCPProvider>
+                      </CanvasProvider>
+                    </ThreadsProvider>
+                  </SubscriptionProvider>
+                </AuthProvider>
+              </OnboardingProvider>
             </DatabaseProvider>
           </DeveloperModeProvider>
         </ViewProvider>

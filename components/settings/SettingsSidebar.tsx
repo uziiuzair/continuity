@@ -13,6 +13,7 @@ const menuItems: { id: SettingsPanel; label: string }[] = [
   { id: "api-keys", label: "API Keys" },
   { id: "connectors", label: "Connectors" },
   { id: "vault", label: "Obsidian Vault" },
+  { id: "plugins", label: "Plugins" },
   { id: "developer", label: "Developer" },
 ];
 

@@ -1,0 +1,331 @@
+/* Threads Engagement Plugin — Dashboard Styles */
+/* Dark theme matching Continuity's aesthetic */
+
+:root {
+  --bg: #faf9f5;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f4ed;
+  --border: #e8e6df;
+  --text: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-muted: #999;
+  --accent: #1a1a1a;
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --amber: #d97706;
+  --amber-bg: #fffbeb;
+  --blue: #2563eb;
+  --blue-bg: #eff6ff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Stats Bar ─────────────────────────── */
+
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.stat-card .label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card .value {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.stat-card.pending .value { color: var(--blue); }
+.stat-card.replied .value { color: var(--green); }
+.stat-card.rejected .value { color: var(--text-muted); }
+
+.budget-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.budget-bar .fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--green);
+  transition: width 0.3s;
+}
+
+.budget-bar .fill.warning { background: var(--amber); }
+.budget-bar .fill.danger { background: var(--red); }
+
+/* ── Toolbar ───────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar .meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.scan-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.scan-btn:hover { background: var(--bg-hover); }
+.scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Filter Tabs ───────────────────────── */
+
+.filter-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-tab {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-tab:hover { background: var(--bg-hover); }
+.filter-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ── Post Feed ─────────────────────────── */
+
+.feed {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.post-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--bg-card);
+  transition: border-color 0.15s;
+}
+
+.post-card:hover { border-color: #ccc; }
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.post-header .username {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.post-header .time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.score-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.score-badge.high { background: var(--green-bg); color: var(--green); }
+.score-badge.medium { background: var(--amber-bg); color: var(--amber); }
+.score-badge.low { background: var(--red-bg); color: var(--red); }
+
+.post-text {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.post-keyword {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.post-reason {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-bottom: 10px;
+}
+
+/* ── Draft Section ─────────────────────── */
+
+.drafts-section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.draft-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.draft-tab {
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.draft-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.draft-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.draft-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Action Bar ────────────────────────── */
+
+.action-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.action-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.action-btn:hover { background: var(--bg-hover); }
+
+.action-btn.approve {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.action-btn.approve:hover { opacity: 0.9; }
+
+.action-btn.reject {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.action-btn.reject:hover { background: var(--red-bg); }
+
+/* ── Status Badges ─────────────────────── */
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.status-badge.replied { background: var(--green-bg); color: var(--green); }
+.status-badge.rejected { background: var(--red-bg); color: var(--red); }
+.status-badge.skipped { background: var(--bg-hover); color: var(--text-muted); }
+
+/* ── Empty State ───────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--text-muted);
+}
+
+.empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+.empty-state .title { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.empty-state .subtitle { font-size: 12px; margin-top: 4px; }
+
+/* ── Loading ───────────────────────────── */
+
+.loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+}

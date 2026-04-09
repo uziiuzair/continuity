@@ -9,8 +9,9 @@ import ApiKeysPanel from "./panels/ApiKeysPanel";
 import ConnectorsPanel from "./panels/ConnectorsPanel";
 import DeveloperPanel from "./panels/DeveloperPanel";
 import VaultPanel from "./panels/VaultPanel";
+import PluginsPanel from "./panels/PluginsPanel";
 
-export type SettingsPanel = "general" | "api-keys" | "connectors" | "vault" | "developer";
+export type SettingsPanel = "general" | "api-keys" | "connectors" | "vault" | "plugins" | "developer";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         return <ConnectorsPanel key={mountKey} />;
       case "vault":
         return <VaultPanel key={mountKey} />;
+      case "plugins":
+        return <PluginsPanel key={mountKey} />;
       case "developer":
         return <DeveloperPanel key={mountKey} />;
       default:

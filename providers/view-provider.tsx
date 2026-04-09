@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 
-type Views = "chat" | "threads" | "projects" | "settings";
+type Views = "chat" | "threads" | "projects" | "settings" | `plugin:${string}`;
 
 interface ViewContextProps {
   view: Views;

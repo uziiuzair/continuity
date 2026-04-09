@@ -20,7 +20,7 @@ import {
   AIToolCall,
   ChatOptions,
 } from "@/lib/ai";
-import { getAIConfig } from "@/lib/db/settings";
+import { getAIConfig, getSetting } from "@/lib/db/settings";
 import {
   CANVAS_TOOLS,
   CANVAS_TOOLS_SYSTEM_PROMPT,
@@ -40,25 +40,13 @@ import {
   MEMORY_TOOL_NAMES,
   MEMORY_TOOLS_SYSTEM_PROMPT,
   executeMemoryTool,
+  getMemoryContext,
 } from "@/lib/ai/memory-tools";
 import {
-  ARTIFACT_TOOLS,
-  ARTIFACT_TOOL_NAMES,
-  ARTIFACT_TOOLS_SYSTEM_PROMPT,
-  executeArtifactTool,
-} from "@/lib/ai/artifact-tools";
-import {
-  DATABASE_TOOLS,
-  DATABASE_TOOL_NAMES,
-  DATABASE_TOOLS_SYSTEM_PROMPT,
-  executeDatabaseTool,
-} from "@/lib/ai/database-tools";
-import {
-  WORK_STATE_TOOLS,
-  WORK_STATE_TOOL_NAMES,
-  WORK_STATE_TOOLS_SYSTEM_PROMPT,
-  executeWorkStateTool,
-} from "@/lib/ai/work-state-tools";
+  getNarrativeForPrompt,
+  scheduleSynthesisCheck,
+} from "@/lib/ai/narrative-synthesis";
+// Old artifact, database, and work-state tools removed — replaced by unified MCP memory system
 import {
   RESEARCH_TOOLS,
   RESEARCH_TOOL_NAMES,
@@ -73,6 +61,12 @@ import {
   getServerIdFromQualifiedName,
   fetchMCPAppHtml,
 } from "@/lib/ai/mcp-tools";
+import {
+  getPluginToolDefinitions,
+  isPluginTool,
+  executePluginTool,
+  getPluginToolsSystemPrompt,
+} from "@/lib/ai/plugin-tools";
 import {
   OBSIDIAN_TOOLS,
   OBSIDIAN_TOOL_NAMES,
@@ -121,24 +115,18 @@ function getActivityStateForTool(toolName: string): ActivityState {
   }
 
   // Saving/Memory operations
-  if (['remember_information', 'forget_information'].includes(toolName)) {
+  if (['remember', 'forget', 'remember_information', 'forget_information'].includes(toolName)) {
     return 'saving';
-  }
-
-  // Extracting structure from content
-  if ([
-    'create_task',
-    'create_artifact',
-    'add_open_loop',
-    'add_blocker',
-    'record_decision',
-  ].includes(toolName)) {
-    return 'extracting';
   }
 
   // MCP external tools
   if (getMCPToolNames().includes(toolName)) {
     return 'mcp-calling';
+  }
+
+  // Plugin tools
+  if (isPluginTool(toolName)) {
+    return 'mcp-calling'; // reuse the same activity state
   }
 
   // Default: updating workspace (canvas, database, etc.)
@@ -151,9 +139,6 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 const BASE_TOOLS: ToolDefinition[] = [
   ...WEB_TOOLS,
   ...MEMORY_TOOLS,
-  ...ARTIFACT_TOOLS,
-  ...DATABASE_TOOLS,
-  ...WORK_STATE_TOOLS,
   ...RESEARCH_TOOLS,
 ];
 
@@ -172,7 +157,7 @@ function getAllTools(includeCanvas: boolean): ToolDefinition[] {
   if (_vaultConnected) {
     tools.push(...OBSIDIAN_TOOLS);
   }
-  return [...tools, ...getMCPToolDefinitions()];
+  return [...tools, ...getMCPToolDefinitions(), ...getPluginToolDefinitions()];
 }
 
 // Convert our tool definitions to AI SDK format
@@ -253,20 +238,91 @@ async function buildSystemPrompt(includeCanvas: boolean): Promise<string> {
     }
   }
 
+  // Load user profile for personalization
+  let userProfilePrompt = "";
+  if (isTauriContext()) {
+    try {
+      const [nickname, occupation, about, customInstructions] =
+        await Promise.all([
+          getSetting("user_nickname"),
+          getSetting("user_occupation"),
+          getSetting("user_about"),
+          getSetting("user_custom_instructions"),
+        ]);
+
+      const profileParts: string[] = [];
+      if (nickname) profileParts.push(`- Name: ${nickname}`);
+      if (occupation) profileParts.push(`- Occupation: ${occupation}`);
+      if (about) profileParts.push(`- About: ${about}`);
+
+      if (profileParts.length > 0 || customInstructions) {
+        const sections: string[] = [];
+        if (profileParts.length > 0) {
+          sections.push(
+            `## About the User\n\n${profileParts.join("\n")}`,
+          );
+        }
+        if (customInstructions) {
+          sections.push(
+            `## Custom Instructions\n\n${customInstructions}`,
+          );
+        }
+        userProfilePrompt = sections.join("\n\n");
+      }
+    } catch {
+      // Non-critical — profile can fail silently
+    }
+  }
+
+  // Load stored memories for passive injection into system prompt
+  let memoryContextPrompt = "";
+  if (isTauriContext()) {
+    try {
+      const memCtx = await getMemoryContext();
+      if (memCtx) memoryContextPrompt = memCtx;
+    } catch {
+      // Non-critical — memory context can fail silently
+    }
+  }
+
+  // Load synthesized narrative (Layer 2 — the AI's mental model of this user)
+  let narrativePrompt = "";
+  if (isTauriContext()) {
+    try {
+      const narrative = await getNarrativeForPrompt();
+      if (narrative) {
+        narrativePrompt = [
+          "## What I Know About You",
+          "",
+          narrative.content,
+          "",
+          `_(Understanding confidence: ${Math.round(narrative.confidence * 100)}% | v${narrative.version} | Last updated: ${new Date(narrative.lastSynthesized).toLocaleDateString()})_`,
+        ].join("\n");
+      }
+    } catch {
+      // Non-critical — narrative can fail silently
+    }
+  }
+
   const mcpPrompt = getMCPToolsSystemPrompt();
   const parts = [
     PERSONALITY_SYSTEM_PROMPT,
+    ...(userProfilePrompt ? [userProfilePrompt] : []),
+    ...(narrativePrompt ? [narrativePrompt] : []),
+    ...(memoryContextPrompt ? [memoryContextPrompt] : []),
     WORKSPACE_AGENT_PROMPT,
     ...(includeCanvas ? [CANVAS_TOOLS_SYSTEM_PROMPT] : []),
     WEB_TOOLS_SYSTEM_PROMPT,
     MEMORY_TOOLS_SYSTEM_PROMPT,
-    ARTIFACT_TOOLS_SYSTEM_PROMPT,
-    DATABASE_TOOLS_SYSTEM_PROMPT,
-    WORK_STATE_TOOLS_SYSTEM_PROMPT,
     RESEARCH_TOOLS_SYSTEM_PROMPT,
   ];
   if (mcpPrompt) {
     parts.push(mcpPrompt);
+  }
+
+  const pluginPrompt = getPluginToolsSystemPrompt();
+  if (pluginPrompt) {
+    parts.push(pluginPrompt);
   }
 
   // Add Obsidian vault context if connected
@@ -501,16 +557,12 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
           result = await executeWebTool(toolCall);
         } else if (MEMORY_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeMemoryTool(toolCall);
-        } else if (ARTIFACT_TOOL_NAMES.includes(tc.function.name)) {
-          result = await executeArtifactTool(toolCall, threadId);
-        } else if (DATABASE_TOOL_NAMES.includes(tc.function.name)) {
-          result = await executeDatabaseTool(toolCall, threadId);
-        } else if (WORK_STATE_TOOL_NAMES.includes(tc.function.name)) {
-          result = await executeWorkStateTool(toolCall, threadId);
         } else if (OBSIDIAN_TOOL_NAMES.includes(tc.function.name)) {
           result = await executeObsidianTool(toolCall);
         } else if (getMCPToolNames().includes(tc.function.name)) {
           result = await executeMCPTool(toolCall);
+        } else if (isPluginTool(tc.function.name)) {
+          result = await executePluginTool(toolCall);
         } else {
           result = {
             toolCallId: tc.id,
@@ -893,6 +945,10 @@ export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
             toolCalls: dbToolCalls,
           });
           await touchThread(threadId);
+
+          // Schedule narrative synthesis check after conversation activity
+          // Debounced — resets on each new message, fires 60s after last exchange
+          scheduleSynthesisCheck(60_000);
         }
       } catch (err) {
         console.error("Failed to send message:", err);

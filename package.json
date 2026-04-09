@@ -1,6 +1,7 @@
 {
   "name": "continuity",
   "version": "1.0.0",
+  "description": "A local-first AI workspace where chat is the write path and structure emerges from conversation",
   "main": "index.js",
   "directories": {
     "test": "test"

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Threads Engagement</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-card pending">
+      <div class="label">Pending</div>
+      <div class="value" id="stat-pending">-</div>
+    </div>
+    <div class="stat-card replied">
+      <div class="label">Replied</div>
+      <div class="value" id="stat-replied">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Discovered</div>
+      <div class="value" id="stat-discovered">-</div>
+    </div>
+    <div class="stat-card rejected">
+      <div class="label">Skipped</div>
+      <div class="value" id="stat-rejected">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Search Budget</div>
+      <div class="value" id="stat-budget">-/500</div>
+      <div class="budget-bar">
+        <div class="fill" id="budget-fill" style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="meta" id="last-scan">Last scan: Never</span>
+    <button class="scan-btn" id="scan-btn" onclick="triggerScan()">Scan Now</button>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="filter-tabs">
+    <button class="filter-tab active" data-status="drafted">Pending</button>
+    <button class="filter-tab" data-status="all">All</button>
+    <button class="filter-tab" data-status="replied">Replied</button>
+    <button class="filter-tab" data-status="rejected">Rejected</button>
+  </div>
+
+  <!-- Post Feed -->
+  <div class="feed" id="feed">
+    <div class="loading">Loading posts...</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
