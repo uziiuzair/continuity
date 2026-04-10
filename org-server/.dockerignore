@@ -1,0 +1,15 @@
+node_modules
+dist
+tests
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.git
+.gitignore
+.env
+.env.local
+coverage
+README.md
+.DS_Store
+*.log

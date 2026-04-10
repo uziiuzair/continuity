@@ -1,0 +1,26 @@
+services:
+  org-server:
+    build: .
+    # To consume a pre-built image instead:
+    #   image: ghcr.io/<your-org>/continuity-org-server:latest
+    container_name: continuity-org-server
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8787}:8787"
+    environment:
+      # The :? syntax makes compose fail loudly if API_KEY is unset —
+      # a second line of defense against unauthenticated deployments.
+      CONTINUITY_ORG_API_KEY: ${CONTINUITY_ORG_API_KEY:?API key required — set CONTINUITY_ORG_API_KEY in .env}
+      CONTINUITY_ORG_PORT: 8787
+      CONTINUITY_ORG_DB_PATH: /data/continuity-org.db
+    volumes:
+      - org-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  org-data:
